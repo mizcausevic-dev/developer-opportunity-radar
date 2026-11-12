@@ -51,6 +51,10 @@ curl -i 'https://developer-opportunity-radar.vercel.app/v1/issues?q=cors&state=o
 | `/v1/clusters`, `/v1/clusters/{id}`, `/v1/clusters/{id}/issues` | `GET` | Sort by `score`, `size` or `recent`; filter by `min_repos`, `min_size`, `repository`. |
 | `/v1/stats`, `/`, `/healthz`, `/openapi.json` | `GET` | Totals, entry-point links, liveness, the contract. |
 
+The dashboard's console sends these requests to the live API and shows the response headers, since half of the contract lives there:
+
+![Live API console on the dashboard: a GET for one cluster with its ETag, RateLimit headers and request id](site/assets/screenshots/live-api.png)
+
 ### HTTP conventions it implements
 
 - **Errors** are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json`. The `type` URI resolves to a [documented error page](https://mizcausevic-dev.github.io/developer-opportunity-radar/problems.html). Validation failures list every offending field in `errors[]`.
