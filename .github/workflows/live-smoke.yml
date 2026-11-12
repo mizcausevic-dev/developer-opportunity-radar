@@ -4,6 +4,11 @@ name: live-smoke
 # ETags, Link pagination, problem+json, read-only writes, no source paths served).
 on:
   workflow_dispatch:
+    inputs:
+      base:
+        description: Deployment to test
+        required: false
+        default: https://developer-opportunity-radar.vercel.app
   schedule:
     - cron: '17 6 * * *'
 
@@ -21,4 +26,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
-      - run: node scripts/smoke.js https://developer-opportunity-radar.vercel.app
+      # Passed through env, never interpolated into the script (no shell injection from inputs).
+      - run: node scripts/smoke.js "$BASE"
+        env:
+          BASE: ${{ inputs.base || 'https://developer-opportunity-radar.vercel.app' }}
