@@ -36,6 +36,9 @@ export class RateLimiter {
 
 export function clientKey(req, trustProxy) {
   if (trustProxy) {
+    // Vercel sets x-vercel-forwarded-for / x-forwarded-for itself; prefer its own header.
+    const vercel = req.headers['x-vercel-forwarded-for'];
+    if (typeof vercel === 'string' && vercel.length) return vercel.split(',')[0].trim();
     const fwd = req.headers['x-forwarded-for'];
     if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
   }

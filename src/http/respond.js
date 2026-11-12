@@ -20,7 +20,7 @@ export function ifNoneMatchHits(header, etag) {
  * @param {import('node:http').ServerResponse} res
  */
 export function sendJson(req, res, status, body, opts = {}) {
-  const { headers = {}, contentType = 'application/json; charset=utf-8', cache } = opts;
+  const { headers = {}, contentType = 'application/json; charset=utf-8', cache, cdnMaxAge = 0 } = opts;
   const buf = Buffer.from(JSON.stringify(body, null, 2) + '\n');
   for (const [k, v] of Object.entries(headers)) if (v !== undefined) res.setHeader(k, v);
   res.setHeader('Content-Type', contentType);
@@ -30,6 +30,12 @@ export function sendJson(req, res, status, body, opts = {}) {
     const etag = etagFor(buf);
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', cache ?? 'public, max-age=60, stale-while-revalidate=300');
+    // Immutable deployments (the snapshot-backed demo) let the CDN absorb repeat reads, so a
+    // distributed client can't fan out across function instances. Only 200s are marked, so
+    // errors and 429s are never cached. Skipped when the route asked for no-store.
+    if (cdnMaxAge > 0 && !String(cache ?? '').includes('no-store')) {
+      res.setHeader('CDN-Cache-Control', `public, max-age=${cdnMaxAge}`);
+    }
     if (ifNoneMatchHits(req.headers['if-none-match'], etag)) {
       res.removeHeader('Content-Type');
       res.statusCode = 304;

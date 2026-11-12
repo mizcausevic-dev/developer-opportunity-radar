@@ -384,7 +384,7 @@ export function createApp({ config, store, github, log = defaultLog }) {
       throw problems.validation([{ field: 'Idempotency-Key', message: 'must be 8-128 visible ASCII characters' }]);
     }
     const fp = createHash('sha256').update(`${req.method} ${ctx.url.pathname}\n`).update(ctx.rawBody).digest('base64url');
-    const prior = store.idempotencyGet(key);
+    const prior = store.idempotencyGet(key, Date.now());
     if (prior) {
       if (prior.fingerprint !== fp) throw new ProblemError(422, 'idempotency-key-reuse', 'This Idempotency-Key was already used with a different request.');
       if (prior.status == null) throw new ProblemError(409, 'conflict', 'A request with this Idempotency-Key is still being processed.', {}, { 'Retry-After': '1' });
@@ -484,7 +484,7 @@ export function createApp({ config, store, github, log = defaultLog }) {
       } else if (out.status === 204) {
         sendEmpty(res, 204, out.headers);
       } else {
-        sendJson(req, res, out.status, out.body, { headers: out.headers, cache: out.cache });
+        sendJson(req, res, out.status, out.body, { headers: out.headers, cache: out.cache, cdnMaxAge: config.cdnMaxAge });
       }
     } catch (caught) {
       const err = upstream(caught);

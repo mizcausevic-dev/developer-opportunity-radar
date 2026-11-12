@@ -99,7 +99,8 @@ const jsonld = {
 };
 const vars = {
   build,
-  api_base: API_BASE,
+  api_base: esc(API_BASE),
+  api_base_js: JSON.stringify(API_BASE).replace(/</g, '\\u003c'),
   repo_count: repos.length,
   issue_count: snap.issues.length,
   issue_count_fmt: fmt.format(snap.issues.length),
@@ -126,7 +127,8 @@ copyFileSync('site/app.js', `${OUT}/app.js`);
 for (const f of ['icon.svg', 'architecture.svg', 'social-preview.png']) {
   if (existsSync(`site/assets/${f}`)) copyFileSync(`site/assets/${f}`, `${OUT}/assets/${f}`);
 }
-writeFileSync(`${OUT}/.nojekyll`, '');
+// No .nojekyll: Pages' Jekyll pass leaves plain HTML untouched (no files start with "_"),
+// and the deploy guard's allowlist then passes without an exception.
 
 // ---------------------------------------------------------------- shared page shell
 const shell = (title, desc, body) => `<!doctype html>

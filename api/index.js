@@ -10,7 +10,9 @@ import { loadSnapshot } from '../src/snapshot.js';
 let app;
 
 function build() {
-  const config = loadConfig({ ...process.env, RADAR_READ_ONLY: '1', RADAR_API_KEY: '', RADAR_TRUST_PROXY: '1' });
+  // Data is fixed per deploy, so the CDN may cache 200 GETs for an hour (cost/abuse damping:
+  // the in-memory rate limiter is per instance and cannot see distributed traffic).
+  const config = loadConfig({ ...process.env, RADAR_READ_ONLY: '1', RADAR_API_KEY: '', RADAR_TRUST_PROXY: '1', RADAR_CDN_MAX_AGE: '3600' });
   const store = openStore(':memory:');
   loadSnapshot(store, JSON.parse(readFileSync(new URL('../data/snapshot.json', import.meta.url), 'utf8')));
   return createApp({ config, store, github: null });

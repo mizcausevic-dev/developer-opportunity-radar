@@ -22,6 +22,8 @@ export function loadConfig(env = process.env) {
       windowSeconds: int(env.RADAR_RATE_WINDOW, 60),
     },
     maxBodyBytes: 16 * 1024,
+    // Seconds a CDN may cache 200 GET responses. Only safe when data is immutable per deploy.
+    cdnMaxAge: int(env.RADAR_CDN_MAX_AGE, 0),
     publicBaseUrl: env.RADAR_PUBLIC_BASE_URL || '',
     docsBaseUrl: 'https://mizcausevic-dev.github.io/developer-opportunity-radar',
     sync: {

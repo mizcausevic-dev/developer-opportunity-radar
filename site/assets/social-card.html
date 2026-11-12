@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>social card</title>
+<style>
+  /* Source for site/assets/social-preview.png (1280x640). Numbers are from the 2026-11-12 snapshot. */
+  html, body { margin: 0; width: 1280px; height: 640px; background: #0d0f12; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; color: #eceef1; overflow: hidden; }
+  .wrap { position: absolute; inset: 40px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 44px; }
+  .eyebrow { font: 600 15px ui-monospace, Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; color: #7fa6ff; }
+  h1 { font-size: 60px; line-height: 1.02; margin: 18px 0 18px; letter-spacing: -.03em; font-weight: 800; }
+  p { font-size: 22px; line-height: 1.4; color: #b9bec7; margin: 0; }
+  .stats { display: flex; gap: 14px; margin-top: 30px; }
+  .stat { background: #16181d; border: 1px solid #2a2e36; border-radius: 12px; padding: 14px 16px; min-width: 112px; }
+  .stat b { display: block; font-size: 30px; letter-spacing: -.02em; }
+  .stat span { font-size: 14px; color: #8b919b; }
+  .panel { background: #16181d; border: 1px solid #2a2e36; border-radius: 16px; padding: 24px 26px; align-self: center; }
+  .panel h2 { margin: 0 0 16px; font-size: 18px; color: #b9bec7; font-weight: 600; }
+  .row { margin: 14px 0; }
+  .lab { display: flex; justify-content: space-between; font-size: 17px; margin-bottom: 7px; }
+  .lab b { font-family: ui-monospace, Consolas, monospace; }
+  .bar { display: flex; height: 14px; gap: 2px; }
+  .bar i { display: block; height: 100%; }
+  .bar i:last-child { border-radius: 0 4px 4px 0; }
+  .foot { position: absolute; left: 40px; bottom: 30px; font: 15px ui-monospace, Consolas, monospace; color: #8b919b; }
+</style></head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="eyebrow">REST API · research tool</div>
+    <h1>Developer Opportunity Radar</h1>
+    <p>Recurring problems across public GitHub issue trackers, clustered and ranked. Every finding links to its source issues.</p>
+    <div class="stats">
+      <div class="stat"><b>1,938</b><span>issues</span></div>
+      <div class="stat"><b>6</b><span>repositories</span></div>
+      <div class="stat"><b>91</b><span>cross-repo clusters</span></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Top opportunities · Node.js HTTP frameworks</h2>
+    <div id="rows"></div>
+  </div>
+</div>
+<div class="foot">mizcausevic-dev.github.io/developer-opportunity-radar</div>
+<script>
+  // label, score, components (volume, spread, engagement, unresolved, momentum) from the snapshot
+  // weight x component, generated from data/snapshot.json (top 5 by score)
+  var R = [["query · method · http",72.2,[0.2656,0.2,0.1715,0.015,0.07]],["redirect · location · url",66.3,[0.3,0.15,0.1736,0.0321,0.0071]],["origin · cors · append",62.2,[0.2551,0.15,0.1615,0.0333,0.0222]],["http2 · statusmessage · concurrency",61.5,[0.2551,0.15,0.1764,0.0333,0]],["mount · readablestream · aot",53.8,[0.2434,0.1,0.1385,0.0562,0]]];
+  var C = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181'];
+  document.getElementById('rows').innerHTML = R.map(function (r) {
+    var parts = r[2].map(function (v, i) { return [v, i]; }).filter(function (p) { return p[0] > 0; });
+    return '<div class="row"><div class="lab"><span>' + r[0] + '</span><b>' + r[1].toFixed(1) + '</b></div><div class="bar">' + /* flex parts sum to score/100, so the bar fills score% of the row */
+      parts.map(function (p) { return '<i style="flex:' + p[0] + ';background:' + C[p[1]] + '"></i>'; }).join('') + '</div></div>';
+  }).join('');
+</script>
+</body></html>

@@ -6,7 +6,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.13.0 <25"
   },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",

@@ -293,6 +293,30 @@ describe('deployment modes and limits', () => {
     await s.close();
   });
 
+  test('CDN caching marks only 200 GETs, never errors or no-store routes', async () => {
+    const s = await start({ RADAR_CDN_MAX_AGE: '3600' });
+    assert.equal((await s.call('/v1/clusters')).headers.get('cdn-cache-control'), 'public, max-age=3600');
+    assert.equal((await s.call('/v1/clusters?limit=0')).headers.get('cdn-cache-control'), null);
+    assert.equal((await s.call('/healthz')).headers.get('cdn-cache-control'), null);
+    await s.close();
+    const plain = await start();
+    assert.equal((await plain.call('/v1/clusters')).headers.get('cdn-cache-control'), null);
+    await plain.close();
+  });
+
+  test('an Idempotency-Key older than 24 h is not replayed', async () => {
+    const s = await start();
+    s.store.db
+      .prepare('INSERT INTO idempotency_keys (key, fingerprint, status, headers, body, created_at) VALUES (?, ?, 202, ?, ?, ?)')
+      .run('stale-key-0001', 'x', '{}', JSON.stringify({ id: 'job_old' }), Date.now() - 25 * 3600 * 1000);
+    const res = await s.call('/v1/analyses', { method: 'POST', headers: { ...auth, 'Idempotency-Key': 'stale-key-0001' } });
+    assert.equal(res.status, 202);
+    assert.equal(res.headers.get('idempotent-replayed'), null);
+    assert.notEqual((await res.json()).id, 'job_old');
+    await s.app.jobs.idle();
+    await s.close();
+  });
+
   test('rate limit returns 429 with Retry-After', async () => {
     const s = await start({ RADAR_RATE_LIMIT: '3' });
     for (let i = 0; i < 3; i++) assert.equal((await s.call('/healthz')).status, 200);

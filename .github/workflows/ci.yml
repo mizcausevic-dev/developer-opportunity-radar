@@ -31,5 +31,5 @@ jobs:
         run: npm test
       - name: Site builds from the committed snapshot
         run: npm run build:site
-      - name: Committed site matches a fresh build
-        run: git diff --exit-code -- docs/
+      - name: Committed site matches a fresh build (modified or new files)
+        run: test -z "$(git status --porcelain -- docs/)" || { git status --porcelain -- docs/; exit 1; }

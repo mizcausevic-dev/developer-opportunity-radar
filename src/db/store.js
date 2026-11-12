@@ -95,6 +95,8 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 );
 `;
 
+export const IDEMPOTENCY_TTL_MS = 24 * 3600 * 1000;
+
 export function openStore(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
@@ -429,13 +431,16 @@ export class Store {
   }
 
   // ---------- idempotency ----------
-  idempotencyGet(key) {
-    const row = this.db.prepare('SELECT * FROM idempotency_keys WHERE key = ?').get(key);
+  idempotencyGet(key, now) {
+    // Expired keys are invisible even before the next reserve sweeps them.
+    const row = this.db
+      .prepare('SELECT * FROM idempotency_keys WHERE key = ? AND created_at >= ?')
+      .get(key, now - IDEMPOTENCY_TTL_MS);
     return row ? { ...row, headers: json(row.headers, {}) } : null;
   }
 
   idempotencyReserve(key, fp, now) {
-    this.db.prepare('DELETE FROM idempotency_keys WHERE created_at < ?').run(now - 24 * 3600 * 1000);
+    this.db.prepare('DELETE FROM idempotency_keys WHERE created_at < ?').run(now - IDEMPOTENCY_TTL_MS);
     const res = this.db
       .prepare('INSERT OR IGNORE INTO idempotency_keys (key, fingerprint, created_at) VALUES (?, ?, ?)')
       .run(key, fp, now);
