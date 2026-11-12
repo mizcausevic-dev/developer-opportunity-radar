@@ -166,6 +166,8 @@ describe('end-to-end against a fake GitHub', () => {
     const second = await s.call('/v1/clusters', { headers: { 'If-None-Match': etag } });
     assert.equal(second.status, 304);
     assert.equal(await second.text(), '');
+    assert.equal(second.headers.get('access-control-allow-origin'), '*', '304s stay readable cross-origin when self-hosted');
+    assert.equal(second.headers.get('etag'), etag);
     const weak = await s.call('/v1/clusters', { headers: { 'If-None-Match': `W/${etag}` } });
     assert.equal(weak.status, 304);
   });

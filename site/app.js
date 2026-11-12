@@ -407,9 +407,11 @@
       $('#out-body').textContent = text === '' ? '(empty body: 304 Not Modified means the cached copy is still current)' : lines.slice(0, 80).join('\n') + (lines.length > 80 ? '\n… ' + (lines.length - 80) + ' more lines' : '');
     }).catch(function (err) {
       $('#out-status').innerHTML = '<span class="badge">network error</span>';
-      $('#out-body').textContent = 'The request did not complete (' + err.message + '). The demo API may be cold-starting or blocked by an extension; try again or run it locally with `npm start`.';
+      $('#out-body').textContent = r.conditional
+        ? 'The request carried If-None-Match, so the expected answer is 304 Not Modified. On the Vercel demo, 304 responses arrive without CORS headers (platform behaviour, checked daily by the live-smoke workflow), so cross-origin JavaScript sees a network error instead. Run the curl command below to see the 304 itself. Self-hosted (npm start), the API sends CORS headers on 304s and this request succeeds in the browser.'
+        : 'The request did not complete (' + err.message + '). The demo API may be cold-starting or blocked by an extension; try again or run it locally with npm start.';
     });
-    $('#out-curl').innerHTML = 'curl: <code>curl -i ' + (r.m !== 'GET' ? '-X ' + r.m + ' ' : '') + (r.conditional ? "-H 'If-None-Match: &lt;etag&gt;' " : '') + "'" + esc(API + r.p) + "'</code>";
+    $('#out-curl').innerHTML = 'curl: <code>curl -i ' + (r.m !== 'GET' ? '-X ' + r.m + ' ' : '') + (r.conditional ? "-H 'If-None-Match: " + esc(lastEtag || '<etag from the first request>') + "' " : '') + "'" + esc(API + r.p) + "'</code>";
   }
 
   /* ---------------- boot ---------------- */

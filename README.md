@@ -61,7 +61,7 @@ curl -i 'https://developer-opportunity-radar.vercel.app/v1/issues?q=cors&state=o
 - **Strict input.** Unknown or repeated query parameters are `422`. Non-JSON bodies are `415`, bodies over 16 KB are `413`, `Accept` without JSON is `406`, a wrong method is `405` with `Allow`.
 - **Rate limits.** `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` on every response, `Retry-After` on `429`.
 - **Auth.** Writes need `Authorization: Bearer <RADAR_API_KEY>` (`401` + `WWW-Authenticate` otherwise). Without a key, the API is read-only (`403`).
-- **CORS** for browser clients, with the contract headers (`ETag`, `Link`, `Location`, `RateLimit-*`) exposed.
+- **CORS** for browser clients, with the contract headers (`ETag`, `Link`, `Location`, `RateLimit-*`) exposed. Known limitation of the Vercel demo: its 304 responses arrive without CORS headers, so browser JavaScript cannot read a cross-origin 304 there (`curl` and server clients can). Self-hosted, the API sends CORS headers on 304s; a test covers it.
 - **Contract test.** A test fails if any route exists in the router but not in `openapi.json`, or the other way round.
 
 ### How it talks to GitHub
@@ -162,7 +162,7 @@ npm run build:site
 - data minimisation (no bodies or usernames reach storage or the snapshot)
 - an OpenAPI ↔ router contract check
 
-CI runs them on Node 22 and 24 and fails if the committed site differs from a fresh build.
+CI runs them on Node 22 and 24 and fails if the committed site differs from a fresh build. A separate `live-smoke` workflow runs [`scripts/smoke.js`](scripts/smoke.js) daily against the deployed API from GitHub's network: ETag and 304, `Link` pagination, problem+json, read-only writes, CORS preflight, and that no source path (`/src/app.js`, `/package.json`, `/data/snapshot.json`) is served.
 
 ## Data handling
 

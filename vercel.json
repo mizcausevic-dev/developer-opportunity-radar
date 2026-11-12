@@ -9,20 +9,5 @@
       "source": "/(.*)",
       "destination": "/api/index"
     }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Expose-Headers",
-          "value": "ETag, Link, Location, Retry-After, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, X-Request-Id, Idempotent-Replayed"
-        }
-      ]
-    }
   ]
 }
