@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-theme="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developer Opportunity Radar</title>
+<meta name="description" content="Recurring problems across 6 Node.js HTTP framework repositories, clustered from 1938 public GitHub issues. Every finding links to its source issue. Built on a documented REST API.">
+<meta property="og:title" content="Developer Opportunity Radar">
+<meta property="og:description" content="91 problems that recur across repositories, found by clustering 1938 public GitHub issues. Every finding links to its source.">
+<meta property="og:image" content="https://mizcausevic-dev.github.io/developer-opportunity-radar/assets/social-preview.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://mizcausevic-dev.github.io/developer-opportunity-radar/">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=972b786c3a">
+<script>
+  // Apply the saved theme before first paint (no flash). Storage can be unavailable.
+  (function () {
+    var t = 'steel', m = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    try { t = localStorage.getItem('dor-theme') || t; m = localStorage.getItem('dor-mode') || m; } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.setAttribute('data-mode', m);
+  })();
+</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Developer Opportunity Radar","applicationCategory":"DeveloperApplication","operatingSystem":"Any","description":"Clusters 1938 public GitHub issues from 6 Node.js HTTP framework repositories into recurring problems, each linked to its source issues.","url":"https://mizcausevic-dev.github.io/developer-opportunity-radar/","codeRepository":"https://github.com/mizcausevic-dev/developer-opportunity-radar","dateModified":"2026-11-12","publisher":{"@type":"Organization","name":"Kinetic Gain","url":"https://kineticgain.com/"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Developer Opportunity Radar home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="2"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="2"/><path d="M16 16 L27 8" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/><circle cx="22" cy="11" r="2.6" fill="var(--accent)"/><circle cx="9" cy="20" r="2" fill="currentColor"/></svg>
+      <span>Opportunity Radar</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#opportunities">Opportunities</a>
+      <a href="#recurrence">Recurrence</a>
+      <a href="#explorer">Explorer</a>
+      <a href="#api">Live API</a>
+      <a href="api.html">API reference</a>
+      <a href="https://github.com/mizcausevic-dev/developer-opportunity-radar">GitHub</a>
+    </nav>
+    <div class="theme-ctl">
+      <label class="sr-only" for="theme">Theme</label>
+      <select id="theme">
+        <option value="bento">Bento Grid</option>
+        <option value="cosmic">Cosmic Cyber</option>
+        <option value="swiss">Swiss Architect</option>
+        <option value="aqua">Aqua Web 2.0</option>
+        <option value="brutalist">Pop Brutalist</option>
+        <option value="steel">Steel Tactical</option>
+        <option value="parchment">Parchment</option>
+      </select>
+      <button class="btn" id="mode" type="button" aria-label="Toggle light or dark mode">◐</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Research tool · REST API · snapshot 2026-11-12</div>
+    <h1>Which problems keep coming back across 6 Node.js HTTP frameworks?</h1>
+    <p class="lede">The radar tracks public GitHub repositories, clusters their issues by what they describe, and ranks the clusters that recur across projects as developer opportunities. Every finding links back to the issues it came from.</p>
+    <div class="meta-row">
+      <span><strong>Sources:</strong> <a href="https://github.com/elysiajs/elysia">elysiajs/elysia</a>, <a href="https://github.com/expressjs/express">expressjs/express</a>, <a href="https://github.com/fastify/fastify">fastify/fastify</a>, <a href="https://github.com/honojs/hono">honojs/hono</a>, <a href="https://github.com/koajs/koa">koajs/koa</a>, <a href="https://github.com/nestjs/nest">nestjs/nest</a></span>
+      <span><strong>Method:</strong> TF-IDF · average-linkage clustering (cut at cosine 0.24) · deterministic</span>
+    </div>
+  </div>
+
+  <div class="grid tiles" aria-label="Snapshot totals">
+    <div class="card tile"><div class="k">Issues analysed</div><div class="v">1,938</div><div class="s">478 still open</div></div>
+    <div class="card tile"><div class="k">Recurring-problem clusters</div><div class="v">200</div><div class="s">3 or more issues each</div></div>
+    <div class="card tile"><div class="k">Seen in 2+ repositories</div><div class="v">91</div><div class="s">26 in 3 or more</div></div>
+    <div class="card tile"><div class="k">Issues in a cluster</div><div class="v">42%</div><div class="s">the rest are one-offs</div></div>
+    <div class="card tile"><div class="k">Clustering time</div><div class="v">297 ms</div><div class="s">1,938 issues, one CPU core</div></div>
+  </div>
+
+  <section id="opportunities">
+    <div class="section-title"><h2>Top opportunities</h2><p>Ranked by opportunity score. Each bar is split into the five weighted components that make up the score.</p></div>
+    <div class="card">
+      <div class="card-head">
+        <div class="legend" id="score-legend"></div>
+        <button class="btn" id="score-table-toggle" type="button" aria-pressed="false">View as table</button>
+      </div>
+      <div id="score-chart"></div>
+      <div id="score-table" class="table-wrap" hidden></div>
+      <p class="note">score = 100 × (0.30 volume + 0.25 spread + 0.20 engagement + 0.15 unresolved + 0.10 momentum). Every component is normalised to 0–1 and returned by the API, so each number can be audited. Select a bar to open its evidence.</p>
+    </div>
+  </section>
+
+  <section id="recurrence">
+    <div class="section-title"><h2>Where problems recur</h2><p>Cross-repository clusters by the number of member issues in each tracked repository.</p></div>
+    <div class="grid two">
+      <div class="card">
+        <div class="card-head"><h3>Cluster × repository</h3><div class="scale" id="heat-scale"></div></div>
+        <div id="heatmap"></div>
+      </div>
+      <div class="grid" style="align-content:start">
+        <div class="card">
+          <div class="card-head"><h3>Issues ingested per repository</h3><div class="legend" id="repo-legend"></div></div>
+          <div id="repo-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Issues opened per month</h3></div>
+          <div id="month-chart"></div>
+          <p class="note">The corpus is the most recently <em>updated</em> issues per repository (up to 1,000 items each, pull requests removed), so older months are under-sampled. Read this as corpus shape, not a trend.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="explorer">
+    <div class="section-title"><h2>Cluster explorer</h2><p>All 200 clusters. Filter, then open one to see its evidence.</p></div>
+    <div class="filters" role="search">
+      <label>Search<input type="search" id="f-q" placeholder="cors, http2, upload…"></label>
+      <label>Repository<select id="f-repo"><option value="">All repositories</option></select></label>
+      <label>Seen in<select id="f-min"><option value="1">1+ repositories</option><option value="2" selected>2+ repositories</option><option value="3">3+ repositories</option></select></label>
+      <label>Sort<select id="f-sort"><option value="score">Score</option><option value="size">Size</option><option value="recent">Most recent</option></select></label>
+      <span class="muted" id="f-count" aria-live="polite"></span>
+    </div>
+    <div class="explorer">
+      <ul class="clist" id="clist" aria-label="Clusters"></ul>
+      <div class="card detail" id="detail" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="api">
+    <div class="section-title"><h2>Try the live API</h2><p>Real requests to the read-only deployment at <code>https://developer-opportunity-radar.vercel.app</code>. Response headers are shown because they carry half of the contract.</p></div>
+    <div class="console">
+      <div class="reqs" id="reqs"></div>
+      <div class="card">
+        <div class="status" id="out-status"><span class="muted">Pick a request.</span></div>
+        <div class="hdrs" id="out-headers"></div>
+        <pre class="out" id="out-body" tabindex="0" aria-label="Response body"></pre>
+        <p class="note" id="out-curl"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="method">
+    <div class="section-title"><h2>How it works</h2></div>
+    <div class="grid two">
+      <div class="card prose">
+        <h3>From issues to ranked findings</h3>
+        <p><b>Ingest.</b> A sync job calls <code>GET /repos/{owner}/{repo}/issues?state=all&amp;sort=updated</code>, follows <code>Link: rel="next"</code> pagination, drops pull requests, and stores metadata only. The next sync sends <code>since=</code> the newest <code>updated_at</code> it holds plus <code>If-None-Match</code>, so an unchanged repository costs one 304.</p>
+        <p><b>Represent.</b> Title words count three times, body words are capped at five, code blocks, HTML, URLs and stack frames are removed, and words that appear in more than 35% of one repository's issues (template headings) are dropped for that repository.</p>
+        <p><b>Cluster.</b> TF-IDF vectors, cosine similarity via an inverted index, then exact average-linkage clustering with the O(n²) nearest-neighbour-chain algorithm. The dendrogram is cut where average similarity falls below 0.24; groups of 3+ issues become clusters. Labels come from class-based TF-IDF; the medoid is the representative issue.</p>
+        <p><b>Rank.</b> The score rewards size, spread across repositories, discussion, unresolved share and recent activity. Weights are fixed and published with every analysis.</p>
+      </div>
+      <div class="card prose">
+        <h3>Data handling and limits</h3>
+        <p>Source: the GitHub REST API, within GitHub's Acceptable Use Policies (research on public, non-personal information, published open access). Titles are truncated to 15 words and always shown with their source link. Issue bodies are read in memory for term extraction and never stored or published. No usernames are kept.</p>
+        <p>Limits worth knowing: bag-of-words similarity misses paraphrases with no shared vocabulary; titles in other languages cluster poorly; the score is a ranking aid, not a market-size estimate; and one snapshot is one point in time.</p>
+        <p><img src="assets/architecture.svg" alt="Architecture: GitHub REST API to sync jobs, SQLite, clustering, REST API, then dashboard and clients" width="100%" style="max-width:100%;height:auto;border-radius:6px"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="brief">
+    <div class="section-title"><h2>Product brief</h2><p>What this is and how it would grow. Items tagged <span class="tag" style="margin:0">proposed</span> are plans, not results.</p></div>
+    <div class="grid brief">
+      <div class="card"><h3>What it is</h3><p>A REST API and dashboard that turns public issue trackers into a ranked list of recurring problems, each traceable to its source issues.</p></div>
+      <div class="card"><h3>Who it is for</h3><p>Developer-tool founders, DevRel and product teams, and maintainers deciding what to build, document or fix next.</p></div>
+      <div class="card"><h3>Why it wins</h3><p>Every number is explainable: deterministic clustering, a published scoring formula, and a source link on every finding. No model hallucination path between the data and the claim.</p></div>
+      <div class="card"><h3>How it is structured</h3><p>Resource-oriented API (repositories, issues, clusters, jobs), SQLite storage, a job runner for syncs and analyses, and static snapshots for read-only hosting.</p></div>
+      <div class="card"><h3>How users discover it<span class="tag">proposed</span></h3><p>The public dashboard and API reference, the open-source repo, and write-ups of notable cross-project findings.</p></div>
+      <div class="card"><h3>How users engage</h3><p>Browse ranked clusters, filter by repository, open evidence, or call the API directly from scripts and notebooks.</p></div>
+      <div class="card"><h3>How users convert<span class="tag">proposed</span></h3><p>Self-host from the repo, or request a tracked set of repositories for their own market.</p></div>
+      <div class="card"><h3>How it makes money<span class="tag">proposed</span></h3><p>Open source today. A hosted tier with scheduled syncs, private watchlists and alerts is the obvious paid layer, subject to a fresh data-rights review.</p></div>
+      <div class="card"><h3>How it launches<span class="tag">proposed</span></h3><p>Public snapshot for one ecosystem (this page), then two more ecosystems to prove the method transfers.</p></div>
+      <div class="card"><h3>How it improves<span class="tag">proposed</span></h3><p>Label feedback on clusters, duplicate-link signals from GitHub, and scheduled re-syncs that track how each cluster moves over time.</p></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Developer Opportunity Radar · MIT licensed · built by <a href="https://kineticgain.com/">Kinetic Gain</a></span>
+    <span><a href="api.html">API reference</a> · <a href="problems.html">Error types</a> · <a href="data/snapshot.json">Snapshot JSON</a> · <a href="https://github.com/mizcausevic-dev/developer-opportunity-radar">Source</a></span>
+  </div>
+</footer>
+
+<div class="tooltip" id="tooltip" role="tooltip"></div>
+<script>window.RADAR_API_BASE = "https://developer-opportunity-radar.vercel.app";</script>
+<script src="data.js?v=972b786c3a"></script>
+<script src="app.js?v=972b786c3a"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "developer-opportunity-radar",
+  "version": "1.0.0",
+  "description": "REST API that tracks public GitHub repositories, clusters recurring issues across them, and links every finding to its source issue.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
+    "ingest": "node --disable-warning=ExperimentalWarning scripts/ingest.js",
+    "snapshot": "node --disable-warning=ExperimentalWarning scripts/export-snapshot.js",
+    "build:site": "node --disable-warning=ExperimentalWarning scripts/build-site.js"
+  }
+}

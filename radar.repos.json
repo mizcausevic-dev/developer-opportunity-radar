@@ -1,0 +1,12 @@
+{
+  "description": "Repositories tracked for the published snapshot: Node.js / TypeScript HTTP frameworks, chosen so recurring API-tooling problems can show up across projects.",
+  "max_pages": 10,
+  "repositories": [
+    "expressjs/express",
+    "fastify/fastify",
+    "honojs/hono",
+    "koajs/koa",
+    "nestjs/nest",
+    "elysiajs/elysia"
+  ]
+}

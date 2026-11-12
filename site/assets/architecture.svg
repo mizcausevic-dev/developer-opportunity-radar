@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" width="960" height="430" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Developer Opportunity Radar architecture</title>
+  <desc id="d">GitHub REST API feeds sync jobs, which write issue metadata and derived terms to SQLite. The analysis job clusters issues. The REST API serves repositories, issues, clusters and jobs. A snapshot powers the read-only Vercel deployment and the GitHub Pages dashboard.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7fa6ff"/></marker>
+    <style>
+      .box { fill: #1c1f25; stroke: #2f343d; stroke-width: 1.5; }
+      .hot { fill: #15213d; stroke: #3d7bff; stroke-width: 1.5; }
+      .h { fill: #eceef1; font-size: 15px; font-weight: 700; }
+      .s { fill: #b9bec7; font-size: 12px; }
+      .m { fill: #8b919b; font-size: 11px; font-family: ui-monospace, Consolas, monospace; }
+      .ln { stroke: #7fa6ff; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+      .dash { stroke-dasharray: 5 4; }
+      .lab { fill: #7fa6ff; font-size: 11px; font-family: ui-monospace, Consolas, monospace; }
+    </style>
+  </defs>
+  <rect width="960" height="430" rx="14" fill="#0d0f12"/>
+  <text x="28" y="38" class="h" style="font-size:17px">Developer Opportunity Radar · data flow</text>
+  <text x="28" y="58" class="s">Everything to the right of GitHub runs in one Node.js process with zero runtime dependencies.</text>
+
+  <!-- GitHub -->
+  <rect x="28" y="96" width="170" height="104" rx="10" class="box"/>
+  <text x="44" y="124" class="h">GitHub REST API</text>
+  <text x="44" y="146" class="m">GET /repos/{o}/{r}</text>
+  <text x="44" y="162" class="m">GET /repos/{o}/{r}/issues</text>
+  <text x="44" y="184" class="s">public issues only</text>
+
+  <!-- Sync -->
+  <rect x="250" y="88" width="200" height="120" rx="10" class="hot"/>
+  <text x="266" y="116" class="h">Sync job</text>
+  <text x="266" y="138" class="s">Link rel="next" pagination</text>
+  <text x="266" y="155" class="s">since= watermark + If-None-Match</text>
+  <text x="266" y="172" class="s">Retry-After / reset-aware backoff</text>
+  <text x="266" y="189" class="s">drops PRs, spam, bodies, usernames</text>
+
+  <!-- SQLite -->
+  <rect x="502" y="88" width="190" height="120" rx="10" class="box"/>
+  <text x="518" y="116" class="h">SQLite (node:sqlite)</text>
+  <text x="518" y="138" class="m">repositories · issues</text>
+  <text x="518" y="155" class="m">clusters · cluster_members</text>
+  <text x="518" y="172" class="m">jobs · idempotency_keys</text>
+  <text x="518" y="189" class="s">keyset indexes, WAL</text>
+
+  <!-- Analysis -->
+  <rect x="502" y="252" width="190" height="132" rx="10" class="hot"/>
+  <text x="518" y="280" class="h">Analysis job</text>
+  <text x="518" y="302" class="s">TF-IDF, repo boilerplate removal</text>
+  <text x="518" y="319" class="s">cosine via inverted index</text>
+  <text x="518" y="336" class="s">average linkage, NN-chain O(n²)</text>
+  <text x="518" y="353" class="s">c-TF-IDF labels, medoid</text>
+  <text x="518" y="370" class="s">explainable opportunity score</text>
+
+  <!-- API -->
+  <rect x="744" y="88" width="188" height="200" rx="10" class="hot"/>
+  <text x="760" y="116" class="h">REST API /v1</text>
+  <text x="760" y="138" class="m">repositories (PUT/DELETE)</text>
+  <text x="760" y="154" class="m">…/syncs → 202 + Location</text>
+  <text x="760" y="170" class="m">analyses → 202 + Location</text>
+  <text x="760" y="186" class="m">jobs/{id} + Retry-After</text>
+  <text x="760" y="202" class="m">issues, clusters (cursor)</text>
+  <text x="760" y="226" class="s">RFC 9457 errors · ETag/304</text>
+  <text x="760" y="243" class="s">RateLimit-* · Idempotency-Key</text>
+  <text x="760" y="260" class="s">OpenAPI 3.1 contract-tested</text>
+
+  <!-- Snapshot consumers -->
+  <rect x="250" y="268" width="200" height="116" rx="10" class="box"/>
+  <text x="266" y="296" class="h">snapshot.json</text>
+  <text x="266" y="318" class="s">metadata + clusters only</text>
+  <text x="266" y="335" class="s">no term vectors, no bodies</text>
+  <text x="266" y="360" class="m">npm run snapshot</text>
+
+  <rect x="744" y="316" width="188" height="68" rx="10" class="box"/>
+  <text x="760" y="342" class="h">Clients</text>
+  <text x="760" y="362" class="s">dashboard · curl · notebooks</text>
+
+  <rect x="28" y="268" width="170" height="116" rx="10" class="box"/>
+  <text x="44" y="296" class="h">Read-only hosts</text>
+  <text x="44" y="318" class="s">Vercel Function:</text>
+  <text x="44" y="334" class="s">same handler, in-memory DB</text>
+  <text x="44" y="356" class="s">GitHub Pages:</text>
+  <text x="44" y="372" class="s">static dashboard</text>
+
+  <path d="M198 148 H246" class="ln"/>
+  <text x="203" y="140" class="lab">200/304</text>
+  <path d="M450 148 H498" class="ln"/>
+  <path d="M597 208 V248" class="ln"/>
+  <path d="M640 248 V212" class="ln"/>
+  <path d="M692 148 H740" class="ln"/>
+  <path d="M838 288 V312" class="ln"/>
+  <path d="M502 318 H454" class="ln dash"/>
+  <path d="M250 326 H202" class="ln dash"/>
+  <text x="456" y="310" class="lab">export</text>
+  <text x="204" y="318" class="lab">load</text>
+</svg>

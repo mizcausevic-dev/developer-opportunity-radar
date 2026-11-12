@@ -1,0 +1,14 @@
+# Upload only what the read-only API function needs.
+*
+!api/
+!api/**
+!src/
+!src/**
+!data/
+!data/snapshot.json
+!openapi/
+!openapi/**
+!vercel-static/
+!vercel-static/**
+!package.json
+!vercel.json

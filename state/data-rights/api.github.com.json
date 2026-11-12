@@ -1,0 +1,32 @@
+{
+  "domain": "api.github.com",
+  "source_name": "GitHub REST API (issues and repository metadata endpoints)",
+  "source_class": "C",
+  "source_class_note": "First-party API used within its terms. Not a directory, aggregator or competitor (Class E), and access is through the documented API, not scraping.",
+  "terms_or_license_reference": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies (Section 7, Information Usage Restrictions: public, non-personal information may be used for research when resulting publications are open access)",
+  "endpoints": [
+    "GET /repos/{owner}/{repo}",
+    "GET /repos/{owner}/{repo}/issues"
+  ],
+  "data_classes_kept": [
+    "issue number, state, labels, created/updated/closed timestamps",
+    "comment count and total reaction count",
+    "issue title truncated to 15 words or fewer, always shown with its source link",
+    "html_url of the source issue",
+    "bag of stemmed terms derived from title and body (local database only, never published)"
+  ],
+  "data_classes_excluded": [
+    "issue body text (read in memory for term extraction, never persisted)",
+    "author login, assignees, avatars, emails or any other personal data",
+    "comment text"
+  ],
+  "rights_status": "cleared",
+  "commercial_use_status": "unknown",
+  "commercial_use_note": "Treated as non-commercial. Open-access research and demo use only. Not to be shipped to an ad-supported, lead-generation or paid surface without a new review.",
+  "destination_property": "developer-opportunity-radar (public GitHub repo, GitHub Pages dashboard, read-only Vercel demo API)",
+  "decision": "allow",
+  "approved_by": "repo owner",
+  "approved_at": "2026-11-12",
+  "approval_record": "Repo owner approved in the Claude Code session of 2026-11-12 (answer: \"Approve\" to the source-gate question). Drafted by Claude; decision field transcribed from that answer.",
+  "next_review": "2027-05-12"
+}

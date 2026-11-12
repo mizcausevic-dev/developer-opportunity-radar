@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" data-theme="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API reference · Developer Opportunity Radar</title>
+<meta name="description" content="REST API reference for Developer Opportunity Radar: repositories, issues, clusters and jobs, with RFC 9457 errors, ETags and cursor pagination.">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=972b786c3a">
+<script>(function(){var t='steel',m=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';try{t=localStorage.getItem('dor-theme')||t;m=localStorage.getItem('dor-mode')||m;}catch(e){}document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-mode',m);})();</script>
+<style>
+  .op { border: var(--border-w) solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px; margin: 12px 0; box-shadow: var(--shadow); scroll-margin-top: 72px; }
+  .op h3 { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-family: var(--font-mono); font-size: 15px; letter-spacing: 0; text-transform: none; }
+  .op .sum { margin: 6px 0; color: var(--ink-2); }
+  .verb { font: 700 12px var(--font-mono); padding: 2px 8px; border-radius: 4px; color: #fff; }
+  .GET { background: #256abf; } .PUT { background: #8a5a00; } .POST { background: #1d7a3a; } .DELETE { background: #b42318; }
+  .lock { font-size: 12px; color: var(--muted); }
+  .resp { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .toc { columns: 2 260px; font-family: var(--font-mono); font-size: 13px; }
+  .toc a { display: block; padding: 2px 0; }
+  pre.ex { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow: auto; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap"><a class="brand" href="./">Opportunity Radar</a><nav class="nav"><a href="./">Dashboard</a><a href="api.html">API reference</a><a href="problems.html">Error types</a><a href="openapi.json">openapi.json</a><a href="https://github.com/mizcausevic-dev/developer-opportunity-radar">GitHub</a></nav></div></header>
+<main class="wrap" style="padding:28px 16px 40px">
+<div class="hero" style="padding-top:0"><div class="eyebrow">OpenAPI 3.1.0 · v1.0.0</div><h1>Developer Opportunity Radar API</h1>
+<p class="lede">Track public GitHub repositories, cluster recurring issues across them, and trace every finding to its source issue. Base URL for the public read-only demo: <code>https://developer-opportunity-radar.vercel.app</code>. Machine-readable spec: <a href="openapi.json">openapi.json</a>.</p></div>
+<section><h2>Conventions</h2><ul class="prose" style="padding-left:18px"><li>Errors use RFC 9457 <code>application/problem+json</code>.</li><li>Collections use opaque keyset cursors, returned both in the body (<code>page.next_cursor</code>) and as an RFC 8288 <code>Link</code> header.</li><li>Every 200 response to GET carries a strong <code>ETag</code>; send it back in <code>If-None-Match</code> to get <code>304 Not Modified</code>.</li><li>Long-running work (syncs, analyses) returns <code>202 Accepted</code> with a <code>Location</code> header pointing at a job resource.</li><li><code>POST</code> endpoints accept an <code>Idempotency-Key</code> header; a retried request with the same key and body replays the original response.</li><li>Every response carries <code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code>, <code>RateLimit-Reset</code> and <code>X-Request-Id</code>.</li></ul></section>
+<section><h2>Operations</h2><nav class="toc"><a href="#getRoot">GET /</a><a href="#getHealth">GET /healthz</a><a href="#getOpenApi">GET /openapi.json</a><a href="#getStats">GET /v1/stats</a><a href="#listRepositories">GET /v1/repositories</a><a href="#getRepository">GET /v1/repositories/{owner}/{name}</a><a href="#trackRepository">PUT /v1/repositories/{owner}/{name}</a><a href="#untrackRepository">DELETE /v1/repositories/{owner}/{name}</a><a href="#syncRepository">POST /v1/repositories/{owner}/{name}/syncs</a><a href="#createAnalysis">POST /v1/analyses</a><a href="#getJob">GET /v1/jobs/{id}</a><a href="#listIssues">GET /v1/issues</a><a href="#getIssue">GET /v1/issues/{id}</a><a href="#listClusters">GET /v1/clusters</a><a href="#getCluster">GET /v1/clusters/{id}</a><a href="#listClusterIssues">GET /v1/clusters/{id}/issues</a></nav><article class="op" id="getRoot">
+  <h3><span class="verb GET">GET</span>/</h3>
+  <p class="sum"><b>API entry point with links to every collection</b></p>
+  
+  
+  <div class="resp"><span class="chip" title="Entry point">200 Entry point</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/&#39;</pre>
+</article>
+<article class="op" id="getHealth">
+  <h3><span class="verb GET">GET</span>/healthz</h3>
+  <p class="sum"><b>Liveness and database check</b></p>
+  
+  
+  <div class="resp"><span class="chip" title="Healthy">200 Healthy</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/healthz&#39;</pre>
+</article>
+<article class="op" id="getOpenApi">
+  <h3><span class="verb GET">GET</span>/openapi.json</h3>
+  <p class="sum"><b>This document</b></p>
+  
+  
+  <div class="resp"><span class="chip" title="OpenAPI 3.1 document">200 OpenAPI 3.1 document</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/openapi.json&#39;</pre>
+</article>
+<article class="op" id="getStats">
+  <h3><span class="verb GET">GET</span>/v1/stats</h3>
+  <p class="sum"><b>Corpus totals, per-repository counts, monthly volume and the latest analysis</b></p>
+  
+  
+  <div class="resp"><span class="chip" title="Stats">200 Stats</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/stats&#39;</pre>
+</article>
+<article class="op" id="listRepositories">
+  <h3><span class="verb GET">GET</span>/v1/repositories</h3>
+  <p class="sum"><b>List tracked repositories</b></p>
+  
+  
+  <div class="resp"><span class="chip" title="Tracked repositories">200 Tracked repositories</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/repositories&#39;</pre>
+</article>
+<article class="op" id="getRepository">
+  <h3><span class="verb GET">GET</span>/v1/repositories/{owner}/{name}</h3>
+  <p class="sum"><b>Get one tracked repository</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>owner</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>name</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9._-]{1,100}$/</code></td><td style="white-space:normal"></td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="Repository">200 Repository</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/repositories/expressjs/express&#39;</pre>
+</article>
+<article class="op" id="trackRepository">
+  <h3><span class="verb PUT">PUT</span>/v1/repositories/{owner}/{name}<span class="lock">· requires API key</span></h3>
+  <p class="sum"><b>Start tracking a public repository (idempotent)</b></p>
+  <p class="sum">The client names the resource, so PUT is used: `201 Created` the first time, `200 OK` on repeats. The repository is validated against GitHub and must be public.</p>
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>owner</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>name</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9._-]{1,100}$/</code></td><td style="white-space:normal"></td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="Already tracked; metadata refreshed">200 Already tracked; metadata refreshed</span><span class="chip" title="Now tracked">201 Now tracked</span><span class="chip" title="RFC 9457 problem details">401 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">403 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">422 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">502 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i -X PUT -H &#39;Authorization: Bearer $RADAR_API_KEY&#39; &#39;https://developer-opportunity-radar.vercel.app/v1/repositories/expressjs/express&#39;</pre>
+</article>
+<article class="op" id="untrackRepository">
+  <h3><span class="verb DELETE">DELETE</span>/v1/repositories/{owner}/{name}<span class="lock">· requires API key</span></h3>
+  <p class="sum"><b>Stop tracking a repository and delete its issues</b></p>
+  <p class="sum">Clusters are cleared because they reference the deleted issues. Run a new analysis afterwards.</p>
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>owner</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>name</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9._-]{1,100}$/</code></td><td style="white-space:normal"></td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="Deleted">204 Deleted</span><span class="chip" title="RFC 9457 problem details">401 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">403 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i -X DELETE -H &#39;Authorization: Bearer $RADAR_API_KEY&#39; &#39;https://developer-opportunity-radar.vercel.app/v1/repositories/expressjs/express&#39;</pre>
+</article>
+<article class="op" id="syncRepository">
+  <h3><span class="verb POST">POST</span>/v1/repositories/{owner}/{name}/syncs<span class="lock">· requires API key</span></h3>
+  <p class="sum"><b>Pull new and updated issues from GitHub</b></p>
+  <p class="sum">Incremental: sends `since=&lt;newest updated_at already stored&gt;` plus `If-None-Match`, so an unchanged repository costs one 304. By default the clusters are recomputed when anything changed.</p>
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>owner</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>name</code> *</td><td>path</td><td><code>string · /^[A-Za-z0-9._-]{1,100}$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>Idempotency-Key</code></td><td>header</td><td><code>string</code></td><td style="white-space:normal">8-128 visible ASCII characters. Kept for 24 hours.</td></tr></tbody></table></div><p class="sum"><b>Body</b> (optional, application/json): <code>{&quot;max_pages&quot;:&quot;integer · 1..10&quot;,&quot;analyze&quot;:&quot;boolean · default true&quot;}</code></p>
+  <div class="resp"><span class="chip" title="Job created. Poll the `Location` URL.">202 Job created. Poll the `Location` URL.</span><span class="chip" title="RFC 9457 problem details">401 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">403 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">409 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">415 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">422 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i -X POST -H &#39;Authorization: Bearer $RADAR_API_KEY&#39; &#39;https://developer-opportunity-radar.vercel.app/v1/repositories/expressjs/express/syncs&#39;</pre>
+</article>
+<article class="op" id="createAnalysis">
+  <h3><span class="verb POST">POST</span>/v1/analyses<span class="lock">· requires API key</span></h3>
+  <p class="sum"><b>Re-cluster the whole corpus</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>Idempotency-Key</code></td><td>header</td><td><code>string</code></td><td style="white-space:normal">8-128 visible ASCII characters. Kept for 24 hours.</td></tr></tbody></table></div><p class="sum"><b>Body</b> (optional, application/json): <code>{&quot;threshold&quot;:&quot;number · 0.1..0.6 · default 0.24&quot;,&quot;min_size&quot;:&quot;integer · 2..20 · default 3&quot;}</code></p>
+  <div class="resp"><span class="chip" title="Job created. Poll the `Location` URL.">202 Job created. Poll the `Location` URL.</span><span class="chip" title="RFC 9457 problem details">401 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">403 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">422 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i -X POST -H &#39;Authorization: Bearer $RADAR_API_KEY&#39; &#39;https://developer-opportunity-radar.vercel.app/v1/analyses&#39;</pre>
+</article>
+<article class="op" id="getJob">
+  <h3><span class="verb GET">GET</span>/v1/jobs/{id}</h3>
+  <p class="sum"><b>Poll a job</b></p>
+  <p class="sum">While the job is `queued` or `running` the response carries `Retry-After`.</p>
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>id</code> *</td><td>path</td><td><code>string · /^job_/</code></td><td style="white-space:normal"></td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="Job">200 Job</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/jobs/job_…&#39;</pre>
+</article>
+<article class="op" id="listIssues">
+  <h3><span class="verb GET">GET</span>/v1/issues</h3>
+  <p class="sum"><b>List ingested issues, newest first</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>repository</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal">owner/name</td></tr><tr><td><code>state</code></td><td>query</td><td><code>string · enum: open, closed</code></td><td style="white-space:normal"></td></tr><tr><td><code>label</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal"></td></tr><tr><td><code>cluster</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal"></td></tr><tr><td><code>q</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal">Case-insensitive substring match on the stored title.</td></tr><tr><td><code>limit</code></td><td>query</td><td><code>integer · 1..100 · default 25</code></td><td style="white-space:normal"></td></tr><tr><td><code>cursor</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal">Opaque cursor from `page.next_cursor` or the `next` Link. Bound to the filters it was issued for.</td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="A page of issues">200 A page of issues</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">400 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">422 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/issues&#39;</pre>
+</article>
+<article class="op" id="getIssue">
+  <h3><span class="verb GET">GET</span>/v1/issues/{id}</h3>
+  <p class="sum"><b>Get one issue and its cluster membership</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>id</code> *</td><td>path</td><td><code>string · /^iss_[0-9]+$/</code></td><td style="white-space:normal"></td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="Issue">200 Issue</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/issues/iss_…&#39;</pre>
+</article>
+<article class="op" id="listClusters">
+  <h3><span class="verb GET">GET</span>/v1/clusters</h3>
+  <p class="sum"><b>List recurring-problem clusters from the latest analysis</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>sort</code></td><td>query</td><td><code>string · enum: score, size, recent · default score</code></td><td style="white-space:normal"></td></tr><tr><td><code>repository</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal">owner/name</td></tr><tr><td><code>min_repos</code></td><td>query</td><td><code>integer · 1..100</code></td><td style="white-space:normal">Only clusters seen in at least this many repositories.</td></tr><tr><td><code>min_size</code></td><td>query</td><td><code>integer · 1..</code></td><td style="white-space:normal"></td></tr><tr><td><code>limit</code></td><td>query</td><td><code>integer · 1..100 · default 25</code></td><td style="white-space:normal"></td></tr><tr><td><code>cursor</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal">Opaque cursor from `page.next_cursor` or the `next` Link. Bound to the filters it was issued for.</td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="A page of clusters">200 A page of clusters</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">400 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">422 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/clusters&#39;</pre>
+</article>
+<article class="op" id="getCluster">
+  <h3><span class="verb GET">GET</span>/v1/clusters/{id}</h3>
+  <p class="sum"><b>Get a cluster with its evidence (source issues) and monthly timeline</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>id</code> *</td><td>path</td><td><code>string · /^cl_[0-9a-z]+$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>evidence</code></td><td>query</td><td><code>integer · 1..50 · default 10</code></td><td style="white-space:normal">How many member issues to embed, most similar to the medoid first.</td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="Cluster">200 Cluster</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/clusters/cl_…&#39;</pre>
+</article>
+<article class="op" id="listClusterIssues">
+  <h3><span class="verb GET">GET</span>/v1/clusters/{id}/issues</h3>
+  <p class="sum"><b>Page through every issue in a cluster</b></p>
+  
+  <div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>In</th><th>Schema</th><th>Description</th></tr></thead><tbody><tr><td><code>id</code> *</td><td>path</td><td><code>string · /^cl_[0-9a-z]+$/</code></td><td style="white-space:normal"></td></tr><tr><td><code>limit</code></td><td>query</td><td><code>integer · 1..100 · default 25</code></td><td style="white-space:normal"></td></tr><tr><td><code>cursor</code></td><td>query</td><td><code>string</code></td><td style="white-space:normal">Opaque cursor from `page.next_cursor` or the `next` Link. Bound to the filters it was issued for.</td></tr></tbody></table></div>
+  <div class="resp"><span class="chip" title="A page of issues">200 A page of issues</span><span class="chip" title="The representation matches the `If-None-Match` ETag.">304 The representation matches the `If-None-Match` ETag.</span><span class="chip" title="RFC 9457 problem details">404 RFC 9457 problem details</span><span class="chip" title="RFC 9457 problem details">default problem+json</span></div>
+  <pre class="ex">curl -i &#39;https://developer-opportunity-radar.vercel.app/v1/clusters/cl_…/issues&#39;</pre>
+</article></section></main>
+<footer><div class="wrap"><span>Developer Opportunity Radar · MIT · <a href="https://kineticgain.com/">Kinetic Gain</a></span></div></footer>
+</body>
+</html>

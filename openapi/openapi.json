@@ -1,0 +1,1581 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Developer Opportunity Radar API",
+    "version": "1.0.0",
+    "summary": "Track public GitHub repositories, cluster recurring issues across them, and trace every finding to its source issue.",
+    "description": "Read endpoints are public. Write endpoints (tracking repositories, syncs, analyses) need `Authorization: Bearer <RADAR_API_KEY>` and are disabled on the public demo deployment.\n\nConventions:\n- Errors use RFC 9457 `application/problem+json`.\n- Collections use opaque keyset cursors, returned both in the body (`page.next_cursor`) and as an RFC 8288 `Link` header.\n- Every 200 response to GET carries a strong `ETag`; send it back in `If-None-Match` to get `304 Not Modified`.\n- Long-running work (syncs, analyses) returns `202 Accepted` with a `Location` header pointing at a job resource.\n- `POST` endpoints accept an `Idempotency-Key` header; a retried request with the same key and body replays the original response.\n- Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` and `X-Request-Id`.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "contact": {
+      "name": "Kinetic Gain",
+      "url": "https://kineticgain.com/"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://developer-opportunity-radar.vercel.app",
+      "description": "Public read-only demo"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Meta"
+    },
+    {
+      "name": "Repositories",
+      "description": "Repositories the radar tracks."
+    },
+    {
+      "name": "Issues",
+      "description": "Ingested issue metadata. Bodies are never stored; every issue links to its source."
+    },
+    {
+      "name": "Clusters",
+      "description": "Recurring problems found across repositories, ranked as developer opportunities."
+    },
+    {
+      "name": "Jobs",
+      "description": "Asynchronous syncs and analyses."
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "operationId": "getRoot",
+        "summary": "API entry point with links to every collection",
+        "responses": {
+          "200": {
+            "description": "Entry point",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "operationId": "getHealth",
+        "summary": "Liveness and database check",
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "operationId": "getOpenApi",
+        "summary": "This document",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document",
+            "content": {
+              "application/vnd.oai.openapi+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "operationId": "getStats",
+        "summary": "Corpus totals, per-repository counts, monthly volume and the latest analysis",
+        "responses": {
+          "200": {
+            "description": "Stats",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/repositories": {
+      "get": {
+        "tags": [
+          "Repositories"
+        ],
+        "operationId": "listRepositories",
+        "summary": "List tracked repositories",
+        "responses": {
+          "200": {
+            "description": "Tracked repositories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "page"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Repository"
+                      }
+                    },
+                    "page": {
+                      "$ref": "#/components/schemas/Page"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/repositories/{owner}/{name}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Owner"
+        },
+        {
+          "$ref": "#/components/parameters/Name"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Repositories"
+        ],
+        "operationId": "getRepository",
+        "summary": "Get one tracked repository",
+        "responses": {
+          "200": {
+            "description": "Repository",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repository"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Repositories"
+        ],
+        "operationId": "trackRepository",
+        "summary": "Start tracking a public repository (idempotent)",
+        "description": "The client names the resource, so PUT is used: `201 Created` the first time, `200 OK` on repeats. The repository is validated against GitHub and must be public.",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Already tracked; metadata refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repository"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Now tracked",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repository"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "502": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Repositories"
+        ],
+        "operationId": "untrackRepository",
+        "summary": "Stop tracking a repository and delete its issues",
+        "description": "Clusters are cleared because they reference the deleted issues. Run a new analysis afterwards.",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/repositories/{owner}/{name}/syncs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Owner"
+        },
+        {
+          "$ref": "#/components/parameters/Name"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "operationId": "syncRepository",
+        "summary": "Pull new and updated issues from GitHub",
+        "description": "Incremental: sends `since=<newest updated_at already stored>` plus `If-None-Match`, so an unchanged repository costs one 304. By default the clusters are recomputed when anything changed.",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "max_pages": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Pages of 100 issues to fetch (default 5)."
+                  },
+                  "analyze": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "415": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/analyses": {
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "operationId": "createAnalysis",
+        "summary": "Re-cluster the whole corpus",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "threshold": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 0.6,
+                    "default": 0.24,
+                    "description": "Minimum average-linkage cosine similarity inside a cluster."
+                  },
+                  "min_size": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 20,
+                    "default": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^job_"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "operationId": "getJob",
+        "summary": "Poll a job",
+        "description": "While the job is `queued` or `running` the response carries `Retry-After`.",
+        "responses": {
+          "200": {
+            "description": "Job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/issues": {
+      "get": {
+        "tags": [
+          "Issues"
+        ],
+        "operationId": "listIssues",
+        "summary": "List ingested issues, newest first",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RepositoryFilter"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cluster",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive substring match on the stored title.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of issues",
+            "headers": {
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuePage"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/issues/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^iss_[0-9]+$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Issues"
+        ],
+        "operationId": "getIssue",
+        "summary": "Get one issue and its cluster membership",
+        "responses": {
+          "200": {
+            "description": "Issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/clusters": {
+      "get": {
+        "tags": [
+          "Clusters"
+        ],
+        "operationId": "listClusters",
+        "summary": "List recurring-problem clusters from the latest analysis",
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "score",
+                "size",
+                "recent"
+              ],
+              "default": "score"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RepositoryFilter"
+          },
+          {
+            "name": "min_repos",
+            "in": "query",
+            "description": "Only clusters seen in at least this many repositories.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "min_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of clusters",
+            "headers": {
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterPage"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/clusters/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ClusterId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Clusters"
+        ],
+        "operationId": "getCluster",
+        "summary": "Get a cluster with its evidence (source issues) and monthly timeline",
+        "parameters": [
+          {
+            "name": "evidence",
+            "in": "query",
+            "description": "How many member issues to embed, most similar to the medoid first.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cluster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterDetail"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/v1/clusters/{id}/issues": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ClusterId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Clusters"
+        ],
+        "operationId": "listClusterIssues",
+        "summary": "Page through every issue in a cluster",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of issues",
+            "headers": {
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuePage"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The value of RADAR_API_KEY on the server."
+      }
+    },
+    "headers": {
+      "ETag": {
+        "description": "Strong validator for the response body.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Link": {
+        "description": "RFC 8288 links with rel=\"first\" and, when more results exist, rel=\"next\".",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "RateLimitLimit": {
+        "description": "Requests allowed per window.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "RateLimitRemaining": {
+        "description": "Requests left in the current window.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "RateLimitReset": {
+        "description": "Seconds until the window resets.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "RequestId": {
+        "description": "Echoes a valid incoming X-Request-Id, or a generated UUID.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "parameters": {
+      "Owner": {
+        "name": "owner",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}$"
+        }
+      },
+      "Name": {
+        "name": "name",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,100}$"
+        }
+      },
+      "ClusterId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^cl_[0-9a-z]+$"
+        }
+      },
+      "RepositoryFilter": {
+        "name": "repository",
+        "in": "query",
+        "description": "owner/name",
+        "schema": {
+          "type": "string",
+          "examples": [
+            "expressjs/express"
+          ]
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "Opaque cursor from `page.next_cursor` or the `next` Link. Bound to the filters it was issued for.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "description": "8-128 visible ASCII characters. Kept for 24 hours.",
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      }
+    },
+    "responses": {
+      "Problem": {
+        "description": "RFC 9457 problem details",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "NotModified": {
+        "description": "The representation matches the `If-None-Match` ETag."
+      },
+      "Accepted": {
+        "description": "Job created. Poll the `Location` URL.",
+        "headers": {
+          "Location": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "Idempotent-Replayed": {
+            "description": "Present and `true` when this response is a replay.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Job"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "required": [
+          "limit",
+          "total",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageLinks": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string"
+          },
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Repository": {
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "html_url",
+          "tracked_at",
+          "links"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "examples": [
+              "expressjs/express"
+            ]
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stars": {
+            "type": "integer"
+          },
+          "html_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "tracked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_synced_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "issue_count": {
+            "type": "integer"
+          },
+          "open_issue_count": {
+            "type": "integer"
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "string"
+              },
+              "clusters": {
+                "type": "string"
+              },
+              "syncs": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Issue": {
+        "type": "object",
+        "required": [
+          "id",
+          "repository",
+          "number",
+          "title",
+          "state",
+          "source_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "examples": [
+              "iss_123456789"
+            ]
+          },
+          "repository": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string",
+            "description": "Source title truncated to at most 15 words."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "comments": {
+            "type": "integer"
+          },
+          "reactions": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The GitHub issue this record came from."
+          },
+          "cluster": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "similarity": {
+                "type": "number"
+              },
+              "href": {
+                "type": "string"
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "IssuePage": {
+        "type": "object",
+        "required": [
+          "data",
+          "page",
+          "links"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Page"
+          },
+          "links": {
+            "$ref": "#/components/schemas/PageLinks"
+          }
+        }
+      },
+      "ScoreComponents": {
+        "type": "object",
+        "description": "Each component is normalised to 0-1. score = 100 x (0.30 volume + 0.25 spread + 0.20 engagement + 0.15 unresolved + 0.10 momentum).",
+        "properties": {
+          "volume": {
+            "type": "number",
+            "description": "log2(1+size), relative to the largest cluster"
+          },
+          "spread": {
+            "type": "number",
+            "description": "(repositories - 1) / (tracked repositories - 1)"
+          },
+          "engagement": {
+            "type": "number",
+            "description": "log(1 + comments + reactions), relative to the most-discussed cluster"
+          },
+          "unresolved": {
+            "type": "number",
+            "description": "Share of member issues still open"
+          },
+          "momentum": {
+            "type": "number",
+            "description": "Share of member issues opened in the 180 days before the analysis"
+          }
+        }
+      },
+      "Cluster": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "size",
+          "score",
+          "score_components",
+          "links"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "examples": [
+              "cl_2k9x0f"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "examples": [
+              "cors · preflight · headers"
+            ]
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "size": {
+            "type": "integer"
+          },
+          "repository_count": {
+            "type": "integer"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "full_name": {
+                  "type": "string"
+                },
+                "issues": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "open_issues": {
+            "type": "integer"
+          },
+          "engagement": {
+            "type": "integer"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "score_components": {
+            "$ref": "#/components/schemas/ScoreComponents"
+          },
+          "cohesion": {
+            "type": "number",
+            "description": "Mean cosine similarity of members to the medoid"
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "representative_issue": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "repository": {
+                "type": "string"
+              },
+              "number": {
+                "type": "integer"
+              },
+              "title": {
+                "type": "string"
+              },
+              "source_url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ClusterDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Cluster"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Issue"
+                }
+              },
+              "timeline": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string",
+                      "examples": [
+                        "2026-03"
+                      ]
+                    },
+                    "issues": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ClusterPage": {
+        "type": "object",
+        "required": [
+          "data",
+          "page",
+          "links"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cluster"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Page"
+          },
+          "links": {
+            "$ref": "#/components/schemas/PageLinks"
+          },
+          "meta": {
+            "type": "object"
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "sync",
+              "analysis"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "params": {
+            "type": "object"
+          },
+          "result": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Stats": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "type": "integer"
+          },
+          "issues": {
+            "type": "integer"
+          },
+          "open_issues": {
+            "type": "integer"
+          },
+          "clusters": {
+            "type": "integer"
+          },
+          "cross_repo_clusters": {
+            "type": "integer"
+          },
+          "clustered_issues": {
+            "type": "integer"
+          },
+          "repositories_detail": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "monthly": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "month": {
+                  "type": "string"
+                },
+                "opened": {
+                  "type": "integer"
+                },
+                "still_open": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "latest_analysis": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

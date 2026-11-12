@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-theme="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Error types · Developer Opportunity Radar</title>
+<meta name="description" content="RFC 9457 problem types returned by the Developer Opportunity Radar API and when each occurs.">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=972b786c3a">
+<script>(function(){var t='steel',m=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';try{t=localStorage.getItem('dor-theme')||t;m=localStorage.getItem('dor-mode')||m;}catch(e){}document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-mode',m);})();</script>
+<style>
+  .op { border: var(--border-w) solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px; margin: 12px 0; box-shadow: var(--shadow); scroll-margin-top: 72px; }
+  .op h3 { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-family: var(--font-mono); font-size: 15px; letter-spacing: 0; text-transform: none; }
+  .op .sum { margin: 6px 0; color: var(--ink-2); }
+  .verb { font: 700 12px var(--font-mono); padding: 2px 8px; border-radius: 4px; color: #fff; }
+  .GET { background: #256abf; } .PUT { background: #8a5a00; } .POST { background: #1d7a3a; } .DELETE { background: #b42318; }
+  .lock { font-size: 12px; color: var(--muted); }
+  .resp { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .toc { columns: 2 260px; font-family: var(--font-mono); font-size: 13px; }
+  .toc a { display: block; padding: 2px 0; }
+  pre.ex { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow: auto; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap"><a class="brand" href="./">Opportunity Radar</a><nav class="nav"><a href="./">Dashboard</a><a href="api.html">API reference</a><a href="problems.html">Error types</a><a href="openapi.json">openapi.json</a><a href="https://github.com/mizcausevic-dev/developer-opportunity-radar">GitHub</a></nav></div></header>
+<main class="wrap" style="padding:28px 16px 40px"><div class="hero" style="padding-top:0"><div class="eyebrow">RFC 9457 problem types</div><h1>Error types</h1>
+<p class="lede">Every error is returned as <code>application/problem+json</code>. The <code>type</code> member is a URI pointing at one of the entries below.</p></div>
+<pre class="ex">{
+  &quot;type&quot;: &quot;https://mizcausevic-dev.github.io/developer-opportunity-radar/problems.html#validation-failed&quot;,
+  &quot;title&quot;: &quot;Validation failed&quot;,
+  &quot;status&quot;: 422,
+  &quot;detail&quot;: &quot;One or more fields are invalid.&quot;,
+  &quot;instance&quot;: &quot;/v1/clusters&quot;,
+  &quot;errors&quot;: [
+    {
+      &quot;field&quot;: &quot;limit&quot;,
+      &quot;message&quot;: &quot;must be an integer between 1 and 100&quot;
+    }
+  ]
+}</pre>
+<article class="op" id="bad-request"><h3><span class="badge">400</span>bad-request</h3><p class="sum"><b>Bad request.</b> The request could not be parsed, for example a body that is not a JSON object.</p></article>
+<article class="op" id="validation-failed"><h3><span class="badge">422</span>validation-failed</h3><p class="sum"><b>Validation failed.</b> A path, query or body value is out of range, malformed, repeated or unknown. <code>errors[]</code> lists every offending field.</p></article>
+<article class="op" id="unauthorized"><h3><span class="badge">401</span>unauthorized</h3><p class="sum"><b>Authentication required.</b> A write endpoint was called without <code>Authorization: Bearer &lt;key&gt;</code> or with the wrong key.</p></article>
+<article class="op" id="read-only"><h3><span class="badge">403</span>read-only</h3><p class="sum"><b>This deployment is read-only.</b> The deployment has writes disabled (the public demo always does).</p></article>
+<article class="op" id="not-found"><h3><span class="badge">404</span>not-found</h3><p class="sum"><b>Resource not found.</b> No route at that path, or the repository, issue, cluster or job does not exist.</p></article>
+<article class="op" id="method-not-allowed"><h3><span class="badge">405</span>method-not-allowed</h3><p class="sum"><b>Method not allowed.</b> The path exists but not for this method. The <code>Allow</code> header lists what is supported.</p></article>
+<article class="op" id="not-acceptable"><h3><span class="badge">406</span>not-acceptable</h3><p class="sum"><b>Not acceptable.</b> The <code>Accept</code> header excludes JSON.</p></article>
+<article class="op" id="conflict"><h3><span class="badge">409</span>conflict</h3><p class="sum"><b>Conflict.</b> A request with the same Idempotency-Key is still being processed. Retry after <code>Retry-After</code> seconds.</p></article>
+<article class="op" id="idempotency-key-reuse"><h3><span class="badge">422</span>idempotency-key-reuse</h3><p class="sum"><b>Idempotency key reused with a different request.</b> The Idempotency-Key was already used with a different method, path or body.</p></article>
+<article class="op" id="payload-too-large"><h3><span class="badge">413</span>payload-too-large</h3><p class="sum"><b>Payload too large.</b> The request body exceeds 16 KB.</p></article>
+<article class="op" id="unsupported-media-type"><h3><span class="badge">415</span>unsupported-media-type</h3><p class="sum"><b>Unsupported media type.</b> A body was sent with a Content-Type other than application/json.</p></article>
+<article class="op" id="invalid-cursor"><h3><span class="badge">400</span>invalid-cursor</h3><p class="sum"><b>Invalid pagination cursor.</b> The cursor is malformed or was issued for different filters or sort. Restart from the first page.</p></article>
+<article class="op" id="rate-limited"><h3><span class="badge">429</span>rate-limited</h3><p class="sum"><b>Too many requests.</b> Too many requests in the current window. Wait <code>Retry-After</code> seconds; <code>RateLimit-*</code> headers show the budget.</p></article>
+<article class="op" id="upstream-error"><h3><span class="badge">502</span>upstream-error</h3><p class="sum"><b>Upstream GitHub API error.</b> GitHub returned an error the API could not recover from after retries.</p></article>
+<article class="op" id="internal"><h3><span class="badge">500</span>internal</h3><p class="sum"><b>Internal server error.</b> An unexpected error. The <code>detail</code> includes the request id to quote when reporting it.</p></article></main>
+<footer><div class="wrap"><span>Developer Opportunity Radar · MIT · <a href="https://kineticgain.com/">Kinetic Gain</a></span></div></footer>
+</body>
+</html>
