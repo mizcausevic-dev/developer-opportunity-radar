@@ -59,7 +59,7 @@ curl -i 'https://developer-opportunity-radar.vercel.app/v1/issues?q=cors&state=o
 
 The dashboard's console builds requests from the OpenAPI contract (GET and HEAD only, declared parameters only, path values URL-encoded, and deliberately no field for an API key), sends them to the live API, and shows the response headers, since half of the contract lives there:
 
-![Live API console on the dashboard: a GET for one cluster with its ETag, RateLimit headers and request id](site/assets/screenshots/live-api.png)
+![Live API console: the request builder generated from openapi.json, and a live response with its ETag, Link pagination, RateLimit headers and request id](site/assets/screenshots/live-api.png)
 
 ### HTTP conventions it implements
 
@@ -72,7 +72,7 @@ The dashboard's console builds requests from the OpenAPI contract (GET and HEAD 
 - **Rate limits.** `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` on every response, `Retry-After` on `429`.
 - **Auth.** Writes need `Authorization: Bearer <RADAR_API_KEY>` (`401` + `WWW-Authenticate` otherwise). Without a key, the API is read-only (`403`).
 - **CORS** for browser clients, with the contract headers (`ETag`, `Link`, `Location`, `RateLimit-*`) exposed. Known limitation of the Vercel demo: its 304 responses arrive without CORS headers, so browser JavaScript cannot read a cross-origin 304 there (`curl` and server clients can). Self-hosted, the API sends CORS headers on 304s; a test covers it.
-- **Content negotiation.** `Accept` is parsed with q-values and the most specific range wins, so `application/json;q=0, */*` gets a `406` rather than JSON.
+- **Content negotiation.** `Accept` is parsed with q-values and the most specific range wins, so `application/json;q=0, */*` gets a `406` rather than JSON. Responses carry `Vary: Origin, Accept` so shared caches keep negotiation intact (the live smoke test warms the CDN cache, then checks the 406).
 - **Contract tests.** One test fails if any route exists in the router but not in `openapi.json`, or the other way round. Another validates real responses from every read endpoint against their OpenAPI schemas and treats undocumented fields as errors, so a field added to the code but not the contract fails CI.
 
 ### How it talks to GitHub

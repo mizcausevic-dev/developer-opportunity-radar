@@ -12,6 +12,7 @@ Changed
 - First sync keeps paging (up to 30 pages) until each repository's sample covers the 180-day window. nestjs/nest previously reached back only 83 days, which understated its momentum. Snapshot refreshed: 1,995 issues, 204 clusters.
 - `Accept` negotiation parses q-values; `application/json;q=0, */*` now gets 406.
 - Noise filter catches bracketed placeholders such as `[SPAM]`, and every analysis re-applies it to stored issues.
+- Responses carry `Vary: Origin, Accept`. Found on the live deploy: the CDN served a cached 200 to a client that refused JSON.
 - `Allow` is exposed to browsers via `Access-Control-Expose-Headers`.
 
 Not changed
