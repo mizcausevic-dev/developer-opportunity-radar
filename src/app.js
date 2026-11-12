@@ -435,7 +435,9 @@ export function createApp({ config, store, github, log = defaultLog }) {
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Expose-Headers', EXPOSED.join(', '));
-    res.setHeader('Vary', 'Origin');
+    // Accept changes the response (200 JSON vs 406), so shared caches must key on it too.
+    // Found live: without it the CDN served a cached 200 to a client that refused JSON.
+    res.setHeader('Vary', 'Origin, Accept');
 
     let url;
     try {

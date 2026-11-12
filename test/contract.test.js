@@ -85,6 +85,12 @@ describe('responses match the OpenAPI schemas field for field', () => {
     const res = await fetch(base + '/v1/stats');
     assert.match(res.headers.get('access-control-expose-headers'), /\bAllow\b/);
   });
+
+  test('cacheable responses vary on Accept (negotiation must survive shared caches)', async () => {
+    const res = await fetch(base + '/v1/clusters');
+    assert.match(res.headers.get('vary'), /\bAccept\b/);
+    assert.match(res.headers.get('vary'), /\bOrigin\b/);
+  });
 });
 
 describe('Accept negotiation with q-values', () => {

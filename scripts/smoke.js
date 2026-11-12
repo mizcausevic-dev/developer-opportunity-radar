@@ -62,6 +62,16 @@ check('cluster detail embeds evidence with source URLs', detail.evidence?.length
   console.log(`INFO  CDN x-vercel-cache: second plain request=${b.headers.get('x-vercel-cache') ?? 'n/a'}, with request no-cache=${c.headers.get('x-vercel-cache') ?? 'n/a'}`);
 }
 
+// Negotiation must survive the CDN: warm the cache, then refuse JSON on the same URL.
+{
+  const warm = await get('/v1/clusters?min_repos=2&limit=1');
+  await warm.arrayBuffer();
+  check('responses Vary on Accept', /\bAccept\b/i.test(warm.headers.get('vary') ?? ''), warm.headers.get('vary') ?? 'missing');
+  const refused = await get('/v1/clusters?min_repos=2&limit=1', { Accept: 'application/json;q=0, */*' });
+  await refused.arrayBuffer();
+  check('refusing JSON gets 406 even after the URL is cached', refused.status === 406, `status ${refused.status}, x-vercel-cache ${refused.headers.get('x-vercel-cache') ?? 'n/a'}`);
+}
+
 const bad = await get('/v1/clusters?limit=500');
 check('validation error is RFC 9457 problem+json 422', bad.status === 422 && (bad.headers.get('content-type') ?? '').startsWith('application/problem+json'));
 
