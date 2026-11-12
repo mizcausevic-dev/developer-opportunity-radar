@@ -1,14 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": "vercel-static",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "{data/snapshot.json,openapi/openapi.json,package.json}",
-      "memory": 1024,
-      "maxDuration": 10
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
     }
-  },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Expose-Headers",
+          "value": "ETag, Link, Location, Retry-After, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, X-Request-Id, Idempotent-Replayed"
+        }
+      ]
+    }
+  ]
 }

@@ -1,14 +1,15 @@
-# Upload only what the read-only API function needs.
-*
-!api/
-!api/**
-!src/
-!src/**
-!data/
-!data/snapshot.json
-!openapi/
-!openapi/**
-!vercel-static/
-!vercel-static/**
-!package.json
-!vercel.json
+# Not needed by the read-only API function. Static serving is limited separately by
+# vercel.json "outputDirectory": "vercel-static" (robots.txt only); every other path is
+# rewritten to the function.
+.github
+docs
+site
+test
+scripts
+state
+data/*.db
+data/*.db-*
+README.md
+SECURITY.md
+LICENSE
+radar.repos.json
