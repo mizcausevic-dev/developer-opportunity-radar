@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Developer Opportunity Radar API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "summary": "Track public GitHub repositories, cluster recurring issues across them, and trace every finding to its source issue.",
-    "description": "Read endpoints are public. Write endpoints (tracking repositories, syncs, analyses) need `Authorization: Bearer <RADAR_API_KEY>` and are disabled on the public demo deployment.\n\nConventions:\n- Errors use RFC 9457 `application/problem+json`.\n- Collections use opaque keyset cursors, returned both in the body (`page.next_cursor`) and as an RFC 8288 `Link` header.\n- Every 200 response to GET carries a strong `ETag`; send it back in `If-None-Match` to get `304 Not Modified`.\n- Long-running work (syncs, analyses) returns `202 Accepted` with a `Location` header pointing at a job resource.\n- `POST` endpoints accept an `Idempotency-Key` header; a retried request with the same key and body replays the original response.\n- Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` and `X-Request-Id`.",
+    "description": "Read endpoints are public. Write endpoints (tracking repositories, syncs, analyses) need `Authorization: Bearer <RADAR_API_KEY>` and are disabled on the public demo deployment.\n\nConventions:\n- Errors use RFC 9457 `application/problem+json`.\n- Collections use opaque keyset cursors, returned both in the body (`page.next_cursor`) and as an RFC 8288 `Link` header.\n- Every 200 response to GET carries a strong `ETag`; send it back in `If-None-Match` to get `304 Not Modified`.\n- Long-running work (syncs, analyses) returns `202 Accepted` with a `Location` header pointing at a job resource.\n- `POST` endpoints accept an `Idempotency-Key` header; a retried request with the same key and body replays the original response.\n- `Accept` is negotiated with q-values: a request that refuses JSON (e.g. `application/json;q=0`) gets 406.\n- Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` and `X-Request-Id`.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -1291,7 +1291,8 @@
           "size",
           "score",
           "score_components",
-          "links"
+          "links",
+          "recent"
         ],
         "properties": {
           "id": {
@@ -1390,6 +1391,26 @@
               },
               "issues": {
                 "type": "string"
+              }
+            }
+          },
+          "recent": {
+            "type": "object",
+            "required": [
+              "window_days",
+              "opened"
+            ],
+            "description": "Member issues opened within the momentum window before the analysis. A count, not a rate: most clusters are small.",
+            "properties": {
+              "window_days": {
+                "type": "integer",
+                "examples": [
+                  180
+                ]
+              },
+              "opened": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           }
@@ -1548,7 +1569,7 @@
           "repositories_detail": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/RepositoryStats"
             }
           },
           "monthly": {
@@ -1572,7 +1593,86 @@
             "type": [
               "object",
               "null"
-            ]
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "params": {
+                "type": "object"
+              },
+              "issue_count": {
+                "type": "integer"
+              },
+              "cluster_count": {
+                "type": "integer"
+              },
+              "duration_ms": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "RepositoryStats": {
+        "type": "object",
+        "required": [
+          "full_name",
+          "issues",
+          "open_issues",
+          "sample"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string"
+          },
+          "issues": {
+            "type": "integer"
+          },
+          "open_issues": {
+            "type": "integer"
+          },
+          "last_synced_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "sample": {
+            "type": "object",
+            "required": [
+              "covers_days",
+              "momentum_window_complete"
+            ],
+            "description": "How far back this repository's sample reaches. The corpus holds the most recently updated issues, so an N-day window of opened issues is complete only when covers_days >= N.",
+            "properties": {
+              "oldest_updated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "oldest_created_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "covers_days": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "momentum_window_complete": {
+                "type": "boolean"
+              }
+            }
           }
         }
       }

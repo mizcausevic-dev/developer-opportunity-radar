@@ -74,8 +74,23 @@
 
   /* ---------------- score chart ---------------- */
   var ranked = D.clusters.slice().sort(function (a, b) { return b.score - a.score; });
+  // Sort state for the opportunities chart and its table. 'score' or a component key.
+  var sortKey = 'score';
+  function compName(key) { var k = COMPONENTS.find(function (x) { return x.key === key; }); return k ? k.name : 'Score'; }
+  function rankedBy(key) {
+    return D.clusters.slice().sort(function (a, b) {
+      var d = key === 'score' ? 0 : b.comp[key] - a.comp[key];
+      return d || b.score - a.score || (a.id < b.id ? -1 : 1); // ties broken by total score, then id
+    });
+  }
   function segments(c) {
-    return COMPONENTS.map(function (k) { return { k: k, v: D.weights[k.key] * c.comp[k.key] * 100 }; });
+    // The sorted-by component sits on the axis: only the axis-aligned segment compares accurately.
+    var order = sortKey === 'score' ? COMPONENTS : [COMPONENTS.find(function (k) { return k.key === sortKey; })].concat(COMPONENTS.filter(function (k) { return k.key !== sortKey; }));
+    return order.map(function (k) { return { k: k, v: D.weights[k.key] * c.comp[k.key] * 100 }; });
+  }
+  function setSort(key) {
+    sortKey = key;
+    renderScore();
   }
   function scoreTip(c) {
     var rows = COMPONENTS.map(function (k) {
@@ -85,7 +100,7 @@
   }
   function renderScore() {
     var host = $('#score-chart');
-    var top = ranked.slice(0, 12);
+    var top = rankedBy(sortKey).slice(0, 12);
     var W = widthOf(host);
     var narrow = W < 620;
     var labelW = narrow ? 0 : Math.min(300, W * 0.36);
@@ -127,14 +142,31 @@
     el('line', { class: 'baseline', x1: labelW, x2: labelW, y1: 0, y2: H - 20 }, s);
     host.replaceChildren(s);
 
-    $('#score-legend').innerHTML = COMPONENTS.map(function (k) { return '<span><i style="background:' + k.color + '"></i>' + k.name + ' <span class="muted">×' + D.weights[k.key] + '</span></span>'; }).join('');
+    // Legend chips double as the sort control (segments are too thin to click reliably).
+    $('#score-legend').innerHTML = '<span class="muted">Sort by</span>' +
+      '<button type="button" class="chip-btn" data-sort="score" aria-pressed="' + (sortKey === 'score') + '">Score</button>' +
+      COMPONENTS.map(function (k) {
+        return '<button type="button" class="chip-btn" data-sort="' + k.key + '" aria-pressed="' + (sortKey === k.key) + '"><i style="background:' + k.color + '"></i>' + k.name + ' <span class="muted">×' + D.weights[k.key] + '</span></button>';
+      }).join('');
+    $('#score-sorted').textContent = sortKey === 'score'
+      ? 'Top 12 of ' + D.clusters.length + ' by score'
+      : 'Top 12 of ' + D.clusters.length + ' by ' + compName(sortKey).toLowerCase() + ' (ties broken by score); that segment is drawn on the axis';
     var rows = top.map(function (c) {
       return '<tr><td>' + esc(c.label) + '</td><td class="num">' + c.size + '</td><td class="num">' + c.rc + '</td>' +
         COMPONENTS.map(function (k) { return '<td class="num">' + c.comp[k.key].toFixed(2) + '</td>'; }).join('') + '<td class="num"><b>' + c.score.toFixed(1) + '</b></td></tr>';
     }).join('');
+    var th = function (key, label) {
+      return '<th class="num" aria-sort="' + (sortKey === key ? 'descending' : 'none') + '"><button type="button" class="th-btn" data-sort="' + key + '">' + label + (sortKey === key ? ' ▼' : '') + '</button></th>';
+    };
     $('#score-table').innerHTML = '<table class="data"><thead><tr><th>Cluster</th><th class="num">Issues</th><th class="num">Repos</th>' +
-      COMPONENTS.map(function (k) { return '<th class="num">' + k.name + '</th>'; }).join('') + '<th class="num">Score</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      COMPONENTS.map(function (k) { return th(k.key, k.name); }).join('') + th('score', 'Score') + '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
+  ['#score-legend', '#score-table'].forEach(function (sel) {
+    $(sel).addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-sort]');
+      if (b) setSort(b.getAttribute('data-sort'));
+    });
+  });
   $('#score-table-toggle').addEventListener('click', function () {
     var on = this.getAttribute('aria-pressed') !== 'true';
     this.setAttribute('aria-pressed', on);
@@ -204,7 +236,7 @@
       if (wOpen > 0) el('path', { d: barPath(labelW, y, Math.max(0.5, wOpen - (wClosed > 0 ? 2 : 0)), barH, wClosed > 0 ? 0 : 4, 'right'), fill: 'var(--s1)' }, g);
       if (wClosed > 0) el('path', { d: barPath(labelW + wOpen, y, wClosed, barH, 4, 'right'), fill: 'var(--axis)' }, g);
       var v = el('text', { class: 'val', x: labelW + wOpen + wClosed + 6, y: y + barH / 2 + 4 }, g); v.textContent = nf.format(r.issues);
-      bindTip(g, function () { return '<div class="t">' + esc(r.name) + '</div><table><tr><td><i style="background:var(--s1)"></i>Open</td><td>' + nf.format(r.open) + '</td></tr><tr><td><i style="background:var(--axis)"></i>Closed</td><td>' + nf.format(r.issues - r.open) + '</td></tr><tr><td>Stars</td><td>' + nf.format(r.stars) + '</td></tr></table>'; });
+      bindTip(g, function () { return '<div class="t">' + esc(r.name) + '</div><table><tr><td><i style="background:var(--s1)"></i>Open</td><td>' + nf.format(r.open) + '</td></tr><tr><td><i style="background:var(--axis)"></i>Closed</td><td>' + nf.format(r.issues - r.open) + '</td></tr><tr><td>Stars</td><td>' + nf.format(r.stars) + '</td></tr><tr><td>Sample reaches back</td><td>' + nf.format(r.covers_days) + ' days</td></tr></table>'; });
     });
     el('line', { class: 'baseline', x1: labelW, x2: labelW, y1: 0, y2: sorted.length * rowH }, s);
     host.replaceChildren(s);
@@ -272,7 +304,7 @@
       return '<li><button type="button" data-id="' + c.id + '"' + (current === c.id ? ' aria-current="true"' : '') + '>' +
         '<span class="lab">' + esc(c.label) + '</span><span class="sc">' + c.score.toFixed(1) + '</span>' +
         '<span class="bar-mini"><i style="width:' + c.score + '%"></i></span>' +
-        '<span class="sub"><span>' + c.size + ' issues</span><span>' + c.rc + ' repo' + (c.rc === 1 ? '' : 's') + '</span><span>' + c.open + ' open</span><span>last ' + c.last + '</span></span></button></li>';
+        '<span class="sub"><span>' + c.size + ' issues</span><span>' + c.rc + ' repo' + (c.rc === 1 ? '' : 's') + '</span><span>' + c.open + ' open</span><span>' + c.recent + ' opened in last ' + D.recent_days + ' d</span><span>last ' + c.last + '</span></span></button></li>';
     }).join('') || '<li class="muted" style="padding:14px">No clusters match these filters.</li>';
     if (list.length && !list.some(function (c) { return c.id === current; })) selectCluster(list[0].id, false);
   }
@@ -317,12 +349,56 @@
     d.innerHTML =
       '<div class="card-head"><h3>' + esc(c.label) + '</h3><a class="mono" style="font-size:12px" href="' + API + '/v1/clusters/' + c.id + '" target="_blank" rel="noopener">GET /v1/clusters/' + c.id + '</a></div>' +
       '<div class="chips">' + c.terms.map(function (t) { return '<span class="chip">' + esc(t) + '</span>'; }).join('') + '</div>' +
-      '<div class="kv"><div><b>' + c.score.toFixed(1) + '</b><span>score</span></div><div><b>' + c.size + '</b><span>issues</span></div><div><b>' + c.rc + '</b><span>repositories</span></div><div><b>' + c.open + '</b><span>still open</span></div><div><b>' + nf.format(c.eng) + '</b><span>comments + reactions</span></div><div><b>' + c.coh.toFixed(2) + '</b><span>cohesion</span></div></div>' +
+      '<div class="kv"><div><b>' + c.score.toFixed(1) + '</b><span>score</span></div><div><b>' + c.size + '</b><span>issues</span></div><div><b>' + c.rc + '</b><span>repositories</span></div><div><b>' + c.open + '</b><span>still open</span></div><div><b>' + nf.format(c.eng) + '</b><span>comments + reactions</span></div><div><b>' + c.recent + '</b><span>opened in last ' + D.recent_days + ' days</span></div><div><b>' + c.coh.toFixed(2) + '</b><span>cohesion</span></div></div>' +
       '<div class="chips" style="margin-bottom:10px">' + repos + '</div>' +
+      '<div class="export"><button type="button" class="btn" id="brief-copy">Copy markdown brief</button><button type="button" class="btn" id="brief-dl">Download .md</button><span class="muted" id="brief-status" aria-live="polite"></span></div>' +
       '<table class="data" style="margin-bottom:12px"><tbody>' + comps + '</tbody></table>' +
       '<div id="timeline"></div>' +
       '<h3 style="margin-top:14px">Evidence</h3><ol class="evidence">' + ev + '</ol>' + more;
     renderTimeline(c);
+    $('#brief-copy').addEventListener('click', function () { copyBrief(c); });
+    $('#brief-dl').addEventListener('click', function () { downloadBrief(c); });
+  }
+
+  /* ---------------- markdown brief export (client-side, no API change) ---------------- */
+  function mdEscape(s) { return String(s).replace(/([\\`*_[\]<>|#])/g, '\\$1'); }
+  function briefMarkdown(c) {
+    var page = location.origin + location.pathname + '#cluster=' + c.id;
+    var lines = [
+      '# Recurring problem: ' + mdEscape(c.label),
+      '',
+      '_Developer Opportunity Radar snapshot ' + D.generated_at.slice(0, 10) + ' · [cluster ' + c.id + '](' + page + ') · [API](' + API + '/v1/clusters/' + c.id + ')_',
+      '',
+      '**Score ' + c.score.toFixed(1) + '/100** · ' + c.size + ' issues across ' + c.rc + ' repositories · ' + c.open + ' still open · ' + c.recent + ' opened in the last ' + D.recent_days + ' days',
+      '',
+      '| Component | Value | Weight |',
+      '|---|---:|---:|',
+    ];
+    COMPONENTS.forEach(function (k) { lines.push('| ' + k.name + ' | ' + c.comp[k.key].toFixed(2) + ' | ' + D.weights[k.key] + ' |'); });
+    lines.push('', '**Repositories:** ' + c.by.map(function (v, j) { return v ? D.repos[j].name + ' (' + v + ')' : null; }).filter(Boolean).join(', '), '', '## Evidence', '');
+    c.members.forEach(function (ix) {
+      var i = D.issues[ix];
+      lines.push('- [' + D.repos[i[0]].name + '#' + i[1] + '](' + issueUrl(i) + ') ' + mdEscape(i[2]) + ' (' + (i[3] ? 'open' : 'closed') + ', opened ' + i[4] + ')');
+    });
+    lines.push('', '---', 'score = 100 × (0.30 volume + 0.25 spread + 0.20 engagement + 0.15 unresolved + 0.10 momentum). The score is a ranking aid, not a market-size estimate. Titles are truncated to 15 words; follow the links for the full issues.');
+    return lines.join('\n') + '\n';
+  }
+  function copyBrief(c) {
+    var text = briefMarkdown(c);
+    var done = function (ok) { $('#brief-status').textContent = ok ? 'Copied.' : 'Copy blocked by the browser; use Download instead.'; };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+    else done(false);
+  }
+  function downloadBrief(c) {
+    var url = URL.createObjectURL(new Blob([briefMarkdown(c)], { type: 'text/markdown;charset=utf-8' }));
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'radar-' + c.id + '.md';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    $('#brief-status').textContent = 'Downloaded radar-' + c.id + '.md';
   }
 
   function renderTimeline(c) {
@@ -362,57 +438,150 @@
     host.appendChild(s);
   }
 
-  /* ---------------- live API console ---------------- */
+  /* ---------------- live API console: presets + parameter builder ---------------- */
+  // Requests always go to the fixed API base. The builder only offers GET/HEAD operations and
+  // the parameters declared in openapi.json (D.ops); path values are URL-encoded. There is no
+  // Authorization field on purpose: a key typed into a public page is a leaked key.
   var top = ranked[0];
-  var lastEtag = null;
+  var etags = {}; // path -> last ETag seen, for If-None-Match
   var REQUESTS = [
     { m: 'GET', p: '/v1/clusters?min_repos=3&limit=2', d: 'Cross-repo clusters, keyset-paginated. Note the Link header.' },
     { m: 'GET', p: '/v1/clusters/' + top.id + '?evidence=3', d: 'One finding with its source issues and timeline.' },
     { m: 'GET', p: '/v1/issues?q=cors&state=open&limit=3', d: 'Filter issues; each carries source_url and its cluster.' },
-    { m: 'GET', p: '/v1/clusters?min_repos=3&limit=2', d: 'Same request with If-None-Match: expect 304 Not Modified.', conditional: true },
+    { m: 'GET', p: '/v1/clusters?min_repos=3&limit=2', d: 'Same request with If-None-Match: expect 304 Not Modified.', inm: true },
     { m: 'GET', p: '/v1/clusters?limit=500&colour=red', d: 'Validation: RFC 9457 problem+json listing each bad field.' },
-    { m: 'POST', p: '/v1/analyses', d: 'Writes are disabled on the demo: 403 read-only problem.' },
-    { m: 'GET', p: '/v1/stats', d: 'Corpus totals and the parameters of the latest analysis.' }
+    { m: 'GET', p: '/v1/stats', accept: 'text/html', d: 'Content negotiation: a client that refuses JSON gets 406.' },
+    { m: 'POST', p: '/v1/analyses', d: 'Writes are disabled on the demo: 403 read-only problem.' }
   ];
   var reqs = $('#reqs');
   reqs.innerHTML = REQUESTS.map(function (r, i) {
-    return '<button class="req" type="button" data-i="' + i + '" aria-pressed="false"><code><span class="m">' + r.m + '</span>' + esc(r.p) + (r.conditional ? ' <span class="muted">+ If-None-Match</span>' : '') + '</code><span>' + esc(r.d) + '</span></button>';
+    return '<button class="req" type="button" data-i="' + i + '" aria-pressed="false"><code><span class="m">' + r.m + '</span>' + esc(r.p) +
+      (r.inm ? ' <span class="muted">+ If-None-Match</span>' : '') + (r.accept ? ' <span class="muted">+ Accept: ' + esc(r.accept) + '</span>' : '') +
+      '</code><span>' + esc(r.d) + '</span></button>';
   }).join('');
   reqs.addEventListener('click', function (e) {
     var b = e.target.closest('button[data-i]');
     if (!b) return;
     reqs.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-    run(REQUESTS[Number(b.getAttribute('data-i'))]);
+    var r = REQUESTS[Number(b.getAttribute('data-i'))];
+    loadIntoBuilder(r);
+    run(r);
   });
+
+  // ---- builder ----
+  var OPS = D.ops || [];
+  var opSel = $('#b-op');
+  opSel.innerHTML = OPS.map(function (o, i) { return '<option value="' + i + '">GET ' + esc(o.path) + '</option>'; }).join('');
+  function currentOp() { return OPS[Number(opSel.value)] || OPS[0]; }
+  function templateRe(path) {
+    var names = [];
+    var src = path.split(/(\{[^}]+\})/).map(function (part) {
+      if (/^\{[^}]+\}$/.test(part)) { names.push(part.slice(1, -1)); return '([^/]+)'; }
+      return part.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
+    }).join('');
+    return { re: new RegExp('^' + src + '$'), names: names };
+  }
+  function renderParams(values) {
+    values = values || {};
+    var o = currentOp();
+    $('#b-params').innerHTML = o.params.length ? o.params.map(function (p) {
+      var id = esc('bp-' + p.in + '-' + p.name); // build-time values, escaped anyway
+      var v = values[p.name] != null ? values[p.name] : '';
+      var range = p.min != null || p.max != null ? (p.min != null ? p.min : '') + '..' + (p.max != null ? p.max : '') : null;
+      var hint = [p.in, p.required ? 'required' : null, range].filter(Boolean).join(' · ');
+      var input = p.enum
+        ? '<select id="' + id + '" data-name="' + esc(p.name) + '" data-in="' + esc(p.in) + '"><option value=""></option>' + p.enum.map(function (e) { return '<option' + (String(e) === String(v) ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>'
+        : '<input type="text" id="' + id + '" data-name="' + esc(p.name) + '" data-in="' + esc(p.in) + '" maxlength="200" value="' + esc(v) + '" placeholder="' + esc(p.def != null ? 'default ' + p.def : '') + '" autocomplete="off" spellcheck="false">';
+      return '<label class="bp" for="' + id + '"><span><code>' + esc(p.name) + '</code> <span class="muted">' + esc(hint) + '</span></span>' + input + '</label>';
+    }).join('') : '<p class="muted" style="margin:0">No parameters.</p>';
+    updatePreview();
+  }
+  function builtPath() {
+    var o = currentOp();
+    var path = o.path;
+    var q = new URLSearchParams();
+    $('#b-params').querySelectorAll('[data-name]').forEach(function (inp) {
+      var v = inp.value.trim();
+      // encodeURIComponent leaves . ' ( ) * alone: refuse dot segments (they would resolve to a
+      // different route than the preview shows) and encode quotes so the curl line stays intact.
+      if (inp.getAttribute('data-in') === 'path') {
+        var seg = v === '.' || v === '..' || v === '' ? '_' : encodeURIComponent(v).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/\*/g, '%2A');
+        path = path.replace('{' + inp.getAttribute('data-name') + '}', seg);
+      }
+      else if (v !== '') q.set(inp.getAttribute('data-name'), v);
+    });
+    var qs = q.toString();
+    return path + (qs ? '?' + qs : '');
+  }
+  function updatePreview() {
+    var p = builtPath();
+    $('#b-url').textContent = $('#b-method').value + ' ' + API + p;
+    var known = etags[p];
+    $('#b-inm-note').textContent = $('#b-inm').checked && !known ? 'No ETag yet for this URL: send it once without If-None-Match first.' : known ? 'Last ETag for this URL: ' + known : '';
+  }
+  function loadIntoBuilder(r) {
+    if (r.m !== 'GET') return;
+    var u = new URL(API + r.p);
+    for (var i = 0; i < OPS.length; i++) {
+      var t = templateRe(OPS[i].path);
+      var m = t.re.exec(u.pathname);
+      if (!m) continue;
+      opSel.value = String(i);
+      var values = {};
+      t.names.forEach(function (n, j) { values[n] = decodeURIComponent(m[j + 1]); });
+      u.searchParams.forEach(function (v, k) { values[k] = v; });
+      $('#b-method').value = 'GET';
+      $('#b-accept').value = r.accept || 'application/json';
+      $('#b-inm').checked = Boolean(r.inm);
+      renderParams(values);
+      return;
+    }
+  }
+  opSel.addEventListener('change', function () { renderParams({}); });
+  ['#b-params', '#b-method', '#b-accept', '#b-inm'].forEach(function (sel) { $(sel).addEventListener('input', updatePreview); $(sel).addEventListener('change', updatePreview); });
+  $('#builder').addEventListener('submit', function (e) {
+    e.preventDefault();
+    reqs.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    run({ m: $('#b-method').value === 'HEAD' ? 'HEAD' : 'GET', p: builtPath(), accept: $('#b-accept').value, inm: $('#b-inm').checked });
+  });
+
   var SHOW = ['content-type', 'etag', 'link', 'location', 'ratelimit-limit', 'ratelimit-remaining', 'ratelimit-reset', 'retry-after', 'x-request-id', 'cache-control', 'allow'];
+  var inFlight = false;
   function run(r) {
-    var headers = { Accept: 'application/json' };
-    if (r.conditional && lastEtag) headers['If-None-Match'] = lastEtag;
+    if (inFlight || r.p.charAt(0) !== '/') return; // one request at a time, API-relative paths only
+    var headers = { Accept: r.accept || 'application/json' };
+    if (r.inm && etags[r.p]) headers['If-None-Match'] = etags[r.p];
+    inFlight = true;
     $('#out-status').innerHTML = '<span class="muted">Requesting…</span>';
     $('#out-headers').textContent = '';
     $('#out-body').textContent = '';
     var t0 = performance.now();
     fetch(API + r.p, { method: r.m, headers: headers, cache: 'no-store' }).then(function (res) {
       var ms = Math.round(performance.now() - t0);
-      if (r.m === 'GET' && res.headers.get('etag') && r.p.indexOf('min_repos=3&limit=2') !== -1) lastEtag = res.headers.get('etag');
+      if (r.m === 'GET' && res.status === 200 && res.headers.get('etag')) etags[r.p] = res.headers.get('etag');
       var hdr = SHOW.filter(function (h) { return res.headers.get(h); }).map(function (h) { return '<div><b>' + h + ':</b> ' + esc(res.headers.get(h)) + '</div>'; }).join('');
       $('#out-headers').innerHTML = hdr || '<span class="muted">No exposed headers.</span>';
-      $('#out-status').innerHTML = '<span class="badge">' + res.status + ' ' + esc(res.statusText || '') + '</span><span class="muted">' + ms + ' ms · ' + r.m + ' ' + esc(r.p) + (headers['If-None-Match'] ? ' · If-None-Match sent' : '') + '</span>';
-      return res.status === 304 ? '' : res.text();
+      $('#out-status').innerHTML = '<span class="badge">' + res.status + ' ' + esc(res.statusText || '') + '</span><span class="muted">' + ms + ' ms · ' + r.m + ' ' + esc(r.p) +
+        (headers['If-None-Match'] ? ' · If-None-Match sent' : '') + (headers.Accept !== 'application/json' ? ' · Accept: ' + esc(headers.Accept) : '') + '</span>';
+      return res.status === 304 || r.m === 'HEAD' ? '' : res.text();
     }).then(function (text) {
-      if (text === undefined) return;
       var body = text;
       try { body = JSON.stringify(JSON.parse(text), null, 2); } catch (e) { /* not JSON */ }
       var lines = body.split('\n');
-      $('#out-body').textContent = text === '' ? '(empty body: 304 Not Modified means the cached copy is still current)' : lines.slice(0, 80).join('\n') + (lines.length > 80 ? '\n… ' + (lines.length - 80) + ' more lines' : '');
+      $('#out-body').textContent = text === ''
+        ? (r.m === 'HEAD' ? '(HEAD: headers only, no body)' : '(empty body: 304 Not Modified means the cached copy is still current)')
+        : lines.slice(0, 80).join('\n') + (lines.length > 80 ? '\n… ' + (lines.length - 80) + ' more lines' : '');
     }).catch(function (err) {
       $('#out-status').innerHTML = '<span class="badge">network error</span>';
-      $('#out-body').textContent = r.conditional
+      $('#out-body').textContent = headers['If-None-Match']
         ? 'The request carried If-None-Match, so the expected answer is 304 Not Modified. On the Vercel demo, 304 responses arrive without CORS headers (platform behaviour, checked daily by the live-smoke workflow), so cross-origin JavaScript sees a network error instead. Run the curl command below to see the 304 itself. Self-hosted (npm start), the API sends CORS headers on 304s and this request succeeds in the browser.'
         : 'The request did not complete (' + err.message + '). The demo API may be cold-starting or blocked by an extension; try again or run it locally with npm start.';
-    });
-    $('#out-curl').innerHTML = 'curl: <code>curl -i ' + (r.m !== 'GET' ? '-X ' + r.m + ' ' : '') + (r.conditional ? "-H 'If-None-Match: " + esc(lastEtag || '<etag from the first request>') + "' " : '') + "'" + esc(API + r.p) + "'</code>";
+    }).then(function () { inFlight = false; updatePreview(); });
+    $('#out-curl').innerHTML = 'curl: <code>curl -i ' + (r.m === 'HEAD' ? '-I ' : r.m !== 'GET' ? '-X ' + r.m + ' ' : '') +
+      (headers.Accept !== 'application/json' ? "-H 'Accept: " + esc(headers.Accept) + "' " : '') +
+      (r.inm ? "-H 'If-None-Match: " + esc(etags[r.p] || '<etag from the first request>') + "' " : '') + "'" + esc(API + r.p) + "'</code>";
   }
+  renderParams({});
 
   /* ---------------- boot ---------------- */
   function renderAll() { renderScore(); renderHeat(); renderRepos(); renderMonths(); if (current) renderDetail(D.clusters.find(function (x) { return x.id === current; })); }

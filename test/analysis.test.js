@@ -66,6 +66,9 @@ test('truncateTitle caps titles at 15 words', () => {
 
 test('isNoise drops spam/invalid labels and placeholder titles only', () => {
   assert.equal(isNoise({ title: 'SPAM', labels: [] }), true);
+  assert.equal(isNoise({ title: '[SPAM]', labels: [] }), true); // regression: bracketed placeholder slipped through
+  assert.equal(isNoise({ title: '(test)', labels: [] }), true);
+  assert.equal(isNoise({ title: 'Why was this marked as spam?', labels: [] }), false);
   assert.equal(isNoise({ title: 'Real problem', labels: [{ name: 'Invalid' }] }), true);
   assert.equal(isNoise({ title: 'Spam filter middleware drops valid requests', labels: [] }), false);
   assert.equal(isNoise({ title: 'Duplicate of #12', labels: [{ name: 'duplicate' }] }), false);

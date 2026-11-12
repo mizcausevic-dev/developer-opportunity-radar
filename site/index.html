@@ -79,9 +79,10 @@
     <div class="section-title"><h2>Top opportunities</h2><p>Ranked by opportunity score. Each bar is split into the five weighted components that make up the score.</p></div>
     <div class="card">
       <div class="card-head">
-        <div class="legend" id="score-legend"></div>
+        <div class="legend" id="score-legend" role="group" aria-label="Sort the ranking"></div>
         <button class="btn" id="score-table-toggle" type="button" aria-pressed="false">View as table</button>
       </div>
+      <p class="muted" id="score-sorted" aria-live="polite" style="font-size:12.5px;margin:-4px 0 8px"></p>
       <div id="score-chart"></div>
       <div id="score-table" class="table-wrap" hidden></div>
       <p class="note">score = 100 × (0.30 volume + 0.25 spread + 0.20 engagement + 0.15 unresolved + 0.10 momentum). Every component is normalised to 0–1 and returned by the API, so each number can be audited. Select a bar to open its evidence.</p>
@@ -103,7 +104,7 @@
         <div class="card">
           <div class="card-head"><h3>Issues opened per month</h3></div>
           <div id="month-chart"></div>
-          <p class="note">The corpus is the most recently <em>updated</em> issues per repository (up to 1,000 items each, pull requests removed), so older months are under-sampled. Read this as corpus shape, not a trend.</p>
+          <p class="note">The corpus is the most recently <em>updated</em> issues per repository (at least 1,000 items each, pull requests removed, paging further until the last {{recent_days}} days are fully covered), so older months are under-sampled. Read this as corpus shape, not a trend. Every repository's sample reaches back at least {{min_cover_days}} days, so the "opened in the last {{recent_days}} days" counts are complete.</p>
         </div>
       </div>
     </div>
@@ -127,7 +128,22 @@
   <section id="api">
     <div class="section-title"><h2>Try the live API</h2><p>Real requests to the read-only deployment at <code>{{api_base}}</code>. Response headers are shown because they carry half of the contract.</p></div>
     <div class="console">
-      <div class="reqs" id="reqs"></div>
+      <div class="grid" style="align-content:start">
+        <form class="card builder" id="builder" aria-label="Request builder">
+          <div class="card-head" style="margin-bottom:6px"><h3>Build a request</h3><span class="muted" style="font-size:12px">Operations and parameters come from <a href="openapi.json">openapi.json</a>. GET and HEAD only.</span></div>
+          <label class="bp"><span>Operation</span><select id="b-op"></select></label>
+          <div id="b-params" class="bparams"></div>
+          <div class="brow">
+            <label class="bp"><span>Method</span><select id="b-method"><option>GET</option><option>HEAD</option></select></label>
+            <label class="bp"><span>Accept</span><select id="b-accept"><option>application/json</option><option>*/*</option><option value="text/html">text/html (expect 406)</option><option value="application/json;q=0, */*">application/json;q=0, */* (expect 406)</option></select></label>
+          </div>
+          <label class="check"><input type="checkbox" id="b-inm"> Send If-None-Match with the last ETag for this URL</label>
+          <p class="muted" id="b-inm-note" style="font-size:12px;margin:0"></p>
+          <code class="burl" id="b-url"></code>
+          <button class="btn primary" type="submit">Send request</button>
+        </form>
+        <div class="reqs" id="reqs" aria-label="Preset requests"></div>
+      </div>
       <div class="card">
         <div class="status" id="out-status"><span class="muted">Pick a request.</span></div>
         <div class="hdrs" id="out-headers"></div>

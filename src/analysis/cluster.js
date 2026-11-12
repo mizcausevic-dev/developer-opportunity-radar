@@ -171,7 +171,7 @@ export function clusterIssues(corpus, options = {}) {
       repo_count: new Set(items.map((d) => d.repository)).size,
       open_count: items.filter((d) => d.state === 'open').length,
       engagement: items.reduce((s, d) => s + (d.comments ?? 0) + (d.reactions ?? 0), 0),
-      recent_share: items.filter((d) => Date.parse(d.created_at) >= recentCutoff).length / g.length,
+      recent_opened: items.filter((d) => Date.parse(d.created_at) >= recentCutoff).length,
       cohesion: round(cohesion, 4),
       medoid_issue_id: docs[medoid].id,
       first_seen: dates[0],
@@ -185,7 +185,8 @@ export function clusterIssues(corpus, options = {}) {
   const maxEng = Math.max(1, ...raw.map((c) => Math.log1p(c.engagement)));
   const W = opt.weights;
   const clusters = raw
-    .map(({ recent_share, ...c }) => {
+    .map((c) => {
+      const recent_share = c.recent_opened / c.size;
       const components = {
         volume: round(Math.log2(1 + c.size) / maxVol, 4),
         spread: repoCount > 1 ? round((c.repo_count - 1) / (repoCount - 1), 4) : 0,

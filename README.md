@@ -6,7 +6,7 @@ A REST API that tracks public GitHub repositories, clusters their issues by the 
 **Live read-only API:** https://developer-opportunity-radar.vercel.app/v1/clusters?min_repos=3
 **API reference:** https://mizcausevic-dev.github.io/developer-opportunity-radar/api.html · [`openapi/openapi.json`](openapi/openapi.json)
 
-![Dashboard overview: 1,938 issues from six Node.js HTTP frameworks, 200 clusters, 91 seen in two or more repositories](site/assets/screenshots/overview.png)
+![Dashboard overview: 1,995 issues from six Node.js HTTP frameworks, 204 clusters, 93 seen in two or more repositories](site/assets/screenshots/overview.png)
 
 ## What the current snapshot found
 
@@ -14,17 +14,23 @@ The published snapshot (2026-11-12) tracks six Node.js / TypeScript HTTP framewo
 
 | | |
 |---|---|
-| Issues analysed (pull requests and spam removed) | 1,938 |
-| Clusters of 3+ issues | 200 |
-| Clusters seen in 2+ repositories | 91 |
-| Clusters seen in 3+ repositories | 26 |
-| Clustering time for the whole corpus | 297 ms |
+| Issues analysed (pull requests and spam removed) | 1,995 |
+| Clusters of 3+ issues | 204 |
+| Clusters seen in 2+ repositories | 93 |
+| Clusters seen in 3+ repositories | 29 |
+| Clustering time for the whole corpus | 169 ms |
 
-The top cross-repository clusters include support for the HTTP `QUERY` method (10 issues in 5 repositories), redirect and `Location` handling (14 issues, 4 repositories), CORS `origin` configuration (9 issues, 4 repositories) and HTTP/2 support (9 issues, 4 repositories). Each one opens to its source issues:
+The top cross-repository clusters include support for the HTTP `QUERY` method (9 issues in 5 repositories, 6 of them opened in the last 180 days), redirect and `Location` handling (14 issues, 4 repositories), CORS `origin` configuration (9 issues, 4 repositories) and HTTP/2 support (9 issues, 4 repositories). Each one opens to its source issues:
 
 ![Cluster detail for CORS origin handling, with the score breakdown, a yearly timeline and links to the source issues in hono, elysia, express and koa](site/assets/screenshots/cluster-evidence.png)
 
 ![Top opportunities chart: each bar is split into five weighted score components](site/assets/screenshots/opportunities.png)
+
+On the dashboard you can:
+
+- **Re-rank by any score component.** The legend chips (and the table headers) sort all 204 clusters by volume, spread, engagement, unresolved share or momentum, with ties broken by total score. The chosen component is drawn next to the axis, where its length can be compared.
+- **Export a finding.** "Copy markdown brief" or "Download .md" produces the label, score breakdown, repositories, every evidence issue with its link, the snapshot date and the method caveat, ready to paste into an RFC or a planning doc.
+- **See recent activity honestly.** Each cluster shows how many of its issues were opened in the last 180 days as a plain count.
 
 ![Heatmap of cross-repository clusters by tracked repository, issues per repository, and monthly corpus volume](site/assets/screenshots/recurrence.png)
 
@@ -35,7 +41,7 @@ The top cross-repository clusters include support for the HTTP `QUERY` method (1
 curl -i 'https://developer-opportunity-radar.vercel.app/v1/clusters?min_repos=3&limit=2'
 
 # One finding with its evidence (source issues) and monthly timeline
-curl -i 'https://developer-opportunity-radar.vercel.app/v1/clusters/cl_25j15ns?evidence=5'
+curl -i 'https://developer-opportunity-radar.vercel.app/v1/clusters/cl_25kpc4x?evidence=5'
 
 # Issues mentioning CORS that are still open, each with its source_url and cluster
 curl -i 'https://developer-opportunity-radar.vercel.app/v1/issues?q=cors&state=open'
@@ -49,9 +55,9 @@ curl -i 'https://developer-opportunity-radar.vercel.app/v1/issues?q=cors&state=o
 | `/v1/jobs/{id}` | `GET` | Poll a job. Carries `Retry-After` while it is queued or running. |
 | `/v1/issues`, `/v1/issues/{id}` | `GET` | Filter by `repository`, `state`, `label`, `cluster`, `q`. |
 | `/v1/clusters`, `/v1/clusters/{id}`, `/v1/clusters/{id}/issues` | `GET` | Sort by `score`, `size` or `recent`; filter by `min_repos`, `min_size`, `repository`. |
-| `/v1/stats`, `/`, `/healthz`, `/openapi.json` | `GET` | Totals, entry-point links, liveness, the contract. |
+| `/v1/stats`, `/`, `/healthz`, `/openapi.json` | `GET` | Totals, how far back each repository's sample reaches (`sample.covers_days`), entry-point links, liveness, the contract. |
 
-The dashboard's console sends these requests to the live API and shows the response headers, since half of the contract lives there:
+The dashboard's console builds requests from the OpenAPI contract (GET and HEAD only, declared parameters only, path values URL-encoded, and deliberately no field for an API key), sends them to the live API, and shows the response headers, since half of the contract lives there:
 
 ![Live API console on the dashboard: a GET for one cluster with its ETag, RateLimit headers and request id](site/assets/screenshots/live-api.png)
 
@@ -66,7 +72,8 @@ The dashboard's console sends these requests to the live API and shows the respo
 - **Rate limits.** `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` on every response, `Retry-After` on `429`.
 - **Auth.** Writes need `Authorization: Bearer <RADAR_API_KEY>` (`401` + `WWW-Authenticate` otherwise). Without a key, the API is read-only (`403`).
 - **CORS** for browser clients, with the contract headers (`ETag`, `Link`, `Location`, `RateLimit-*`) exposed. Known limitation of the Vercel demo: its 304 responses arrive without CORS headers, so browser JavaScript cannot read a cross-origin 304 there (`curl` and server clients can). Self-hosted, the API sends CORS headers on 304s; a test covers it.
-- **Contract test.** A test fails if any route exists in the router but not in `openapi.json`, or the other way round.
+- **Content negotiation.** `Accept` is parsed with q-values and the most specific range wins, so `application/json;q=0, */*` gets a `406` rather than JSON.
+- **Contract tests.** One test fails if any route exists in the router but not in `openapi.json`, or the other way round. Another validates real responses from every read endpoint against their OpenAPI schemas and treats undocumented fields as errors, so a field added to the code but not the contract fails CI.
 
 ### How it talks to GitHub
 
@@ -89,7 +96,9 @@ The dashboard's console sends these requests to the live API and shows the respo
 
 The pipeline is deterministic: the same corpus produces the same clusters, IDs and scores, independent of input order. A test enforces this.
 
-**Known limits.** Bag-of-words similarity misses paraphrases that share no vocabulary. Non-English titles cluster poorly. The score is a ranking aid, not a market-size estimate. The corpus is the most recently *updated* 1,000 items per repository, so older months are under-sampled.
+**Sampling.** The first sync pages each repository's issues newest-updated first: at least 10 pages, then further (up to 30) until the oldest item seen predates the 180-day momentum window. Every issue opened in that window has `updated_at >= created_at`, so the window is complete for every repository; `/v1/stats` reports the reach per repository, and the site build refuses to publish if any repository falls short. Each cluster reports `recent.opened`, the count of member issues opened in that window, as a count rather than a growth rate: most clusters hold 3 issues, and a percentage on counts that small is noise.
+
+**Known limits.** Bag-of-words similarity misses paraphrases that share no vocabulary. Non-English titles cluster poorly. The score is a ranking aid, not a market-size estimate. The corpus is the most recently *updated* items per repository, so months before the 180-day window are under-sampled.
 
 ## Architecture
 
@@ -158,7 +167,7 @@ npm run build:site
 
 ## Tests
 
-`npm test` runs 50 tests with `node:test` and no network access:
+`npm test` runs 59 tests with `node:test` and no network access:
 
 - the HTTP contract (problem details, 304s, Link pagination walking every row exactly once, cursor binding, idempotency replay and reuse, 401/403/405/406/413/415/422/429, CORS preflight)
 - the GitHub client against a fake that speaks Link pagination, ETags and rate limits

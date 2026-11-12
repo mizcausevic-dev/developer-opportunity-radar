@@ -49,6 +49,19 @@ const id = listBody.data[0].id;
 const detail = await (await get(`/v1/clusters/${id}?evidence=3`)).json();
 check('cluster detail embeds evidence with source URLs', detail.evidence?.length === 3 && detail.evidence.every((e) => e.source_url.startsWith('https://github.com/')));
 
+// Informational: does a request-side `Cache-Control: no-cache` (what browsers send for
+// fetch(..., {cache: 'no-store'})) bypass the CDN cache? Logged, not asserted.
+{
+  const probe = '/v1/stats';
+  const a = await get(probe);
+  await a.arrayBuffer();
+  const b = await get(probe);
+  await b.arrayBuffer();
+  const c = await get(probe, { 'Cache-Control': 'no-cache' });
+  await c.arrayBuffer();
+  console.log(`INFO  CDN x-vercel-cache: second plain request=${b.headers.get('x-vercel-cache') ?? 'n/a'}, with request no-cache=${c.headers.get('x-vercel-cache') ?? 'n/a'}`);
+}
+
 const bad = await get('/v1/clusters?limit=500');
 check('validation error is RFC 9457 problem+json 422', bad.status === 422 && (bad.headers.get('content-type') ?? '').startsWith('application/problem+json'));
 

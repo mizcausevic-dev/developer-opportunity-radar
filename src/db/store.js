@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS clusters (
   score             REAL NOT NULL,
   score_components  TEXT NOT NULL,                -- JSON breakdown so every score is explainable
   cohesion          REAL NOT NULL,
+  recent_opened     INTEGER NOT NULL DEFAULT 0,   -- member issues opened in the momentum window
   medoid_issue_id   INTEGER NOT NULL REFERENCES issues(id),
   first_seen        TEXT NOT NULL,
   last_seen         TEXT NOT NULL
@@ -102,7 +103,14 @@ export function openStore(path) {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  migrate(db);
   return new Store(db);
+}
+
+// Additive column migrations for databases created by older versions.
+function migrate(db) {
+  const cols = new Set(db.prepare('PRAGMA table_info(clusters)').all().map((c) => c.name));
+  if (!cols.has('recent_opened')) db.exec('ALTER TABLE clusters ADD COLUMN recent_opened INTEGER NOT NULL DEFAULT 0');
 }
 
 const json = (s, fallback) => {
@@ -157,7 +165,8 @@ export class Store {
   listRepositories() {
     return this.db
       .prepare(
-        `SELECT r.*, COUNT(i.id) AS issue_count, SUM(i.state = 'open') AS open_issue_count
+        `SELECT r.*, COUNT(i.id) AS issue_count, SUM(i.state = 'open') AS open_issue_count,
+                MIN(i.updated_at) AS oldest_updated_at, MIN(i.created_at) AS oldest_created_at
          FROM repositories r LEFT JOIN issues i ON i.repository_id = r.id
          GROUP BY r.id ORDER BY r.full_name COLLATE NOCASE`,
       )
@@ -213,8 +222,12 @@ export class Store {
   deleteIssues(ids) {
     const del = this.db.prepare('DELETE FROM issues WHERE id = ?');
     const unlink = this.db.prepare('DELETE FROM cluster_members WHERE issue_id = ?');
+    // A cluster whose representative (medoid) issue is deleted can't stand: drop it (its
+    // members cascade) so the foreign key holds. The next analysis rebuilds clusters anyway.
+    const dropMedoidClusters = this.db.prepare('DELETE FROM clusters WHERE medoid_issue_id = ?');
     this.tx(() => {
       for (const id of ids) {
+        dropMedoidClusters.run(id);
         unlink.run(id);
         del.run(id);
       }
@@ -287,9 +300,9 @@ export class Store {
         .run(prefix({ ...analysis, params: JSON.stringify(analysis.params) }));
       const ins = this.db.prepare(
         `INSERT INTO clusters (id, analysis_id, label, terms, size, repo_count, open_count, engagement,
-           score, score_components, cohesion, medoid_issue_id, first_seen, last_seen)
+           score, score_components, cohesion, recent_opened, medoid_issue_id, first_seen, last_seen)
          VALUES ($id, $analysis_id, $label, $terms, $size, $repo_count, $open_count, $engagement,
-           $score, $score_components, $cohesion, $medoid_issue_id, $first_seen, $last_seen)`,
+           $score, $score_components, $cohesion, $recent_opened, $medoid_issue_id, $first_seen, $last_seen)`,
       );
       const mem = this.db.prepare('INSERT INTO cluster_members (cluster_id, issue_id, similarity) VALUES (?, ?, ?)');
       for (const c of clusters) {
@@ -297,6 +310,7 @@ export class Store {
         ins.run(
           prefix({
             ...row,
+            recent_opened: row.recent_opened ?? 0, // snapshots from v1.0.0 lack it
             analysis_id: analysis.id,
             terms: JSON.stringify(c.terms),
             score_components: JSON.stringify(c.score_components),

@@ -10,7 +10,8 @@ const NOISE_LABELS = new Set(['spam', 'invalid']);
 export function isNoise(item) {
   const labels = (item.labels ?? []).map((l) => String(typeof l === 'string' ? l : l.name).toLowerCase());
   if (labels.some((l) => NOISE_LABELS.has(l))) return true;
-  return /^\s*(spam|test|testing|asdf+)\s*$/i.test(item.title ?? '');
+  // whole-title placeholders, optionally bracketed: "SPAM", "[SPAM]", "(test)"
+  return /^\s*[[(]?\s*(spam|test|testing|asdf+)\s*[\])]?\s*$/i.test(item.title ?? '');
 }
 
 /** Map a GitHub issue payload to the stored shape. Drops the body and every personal field. */
@@ -46,7 +47,7 @@ export function repositoryRow(gh, trackedAt) {
  * Incremental sync. The watermark is the newest `updated_at` already stored, so when nothing
  * changed the request URL is identical to last time and GitHub answers 304 to If-None-Match.
  */
-export async function syncRepository(store, github, fullName, { maxPages = 5 } = {}) {
+export async function syncRepository(store, github, fullName, { maxPages = 5, coverDays = DEFAULTS.recentDays, hardMaxPages = 30 } = {}) {
   const repo = store.getRepository(fullName);
   if (!repo) throw new Error(`Repository ${fullName} is not tracked.`);
   const started = Date.now();
@@ -54,6 +55,9 @@ export async function syncRepository(store, github, fullName, { maxPages = 5 } =
     since: repo.issues_since ?? undefined,
     etag: repo.issues_since ? repo.issues_etag ?? undefined : undefined,
     maxPages,
+    // First sync: keep paging until the momentum window is fully sampled (see README, sampling).
+    coverUntil: new Date(Date.now() - coverDays * 86_400_000).toISOString(),
+    hardMaxPages,
   });
   const at = new Date().toISOString();
   if (res.notModified) {
@@ -78,6 +82,7 @@ export async function syncRepository(store, github, fullName, { maxPages = 5 } =
     upserted: issues.length,
     skipped_as_noise: skipped,
     pages: res.pages,
+    window_covered: res.covered,
     duration_ms: Date.now() - started,
     github_rate_limit: github.rateLimit,
   };
@@ -86,6 +91,11 @@ export async function syncRepository(store, github, fullName, { maxPages = 5 } =
 export function analyze(store, { threshold = DEFAULTS.threshold, minSize = DEFAULTS.minSize, now } = {}) {
   const started = Date.now();
   const createdAt = now ?? new Date().toISOString();
+  // Re-apply the noise rules to stored issues, so a rule fix takes effect without a refetch.
+  const noise = store.db.prepare('SELECT id, title, labels FROM issues').all()
+    .filter((r) => isNoise({ title: r.title, labels: JSON.parse(r.labels) }))
+    .map((r) => r.id);
+  if (noise.length) store.deleteIssues(noise);
   const corpus = store.issueCorpus();
   const { clusters, stats } = clusterIssues(corpus, { threshold, minSize, now: createdAt });
   const analysis = {

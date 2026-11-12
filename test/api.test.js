@@ -204,6 +204,11 @@ describe('end-to-end against a fake GitHub', () => {
   test('406 when the client refuses JSON', async () => {
     const res = await s.call('/v1/stats', { headers: { Accept: 'text/html' } });
     assert.equal(res.status, 406);
+    // refusing JSON explicitly wins over a wildcard (regression: problem+json used to satisfy */*)
+    assert.equal((await s.call('/v1/stats', { headers: { Accept: 'application/json;q=0, */*' } })).status, 406);
+    assert.equal((await s.call('/v1/stats', { headers: { Accept: 'application/problem+json' } })).status, 406);
+    assert.equal((await s.call('/v1/stats', { headers: { Accept: 'text/html, application/json;q=0.2' } })).status, 200);
+    assert.equal((await s.call('/openapi.json', { headers: { Accept: 'application/vnd.oai.openapi+json' } })).status, 200);
   });
 
   test('CORS preflight advertises methods and headers', async () => {

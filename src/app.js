@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { requireWriteAccess } from './http/auth.js';
 import { readJson } from './http/body.js';
+import { acceptsAny } from './http/negotiate.js';
 import { decodeCursor, encodeCursor, fingerprint, pageLinks, parseLimit } from './http/pagination.js';
 import { ProblemError, problemBody, problems } from './http/problem.js';
 import { clientKey, RateLimiter } from './http/ratelimit.js';
@@ -17,7 +18,7 @@ const OPENAPI = readFileSync(new URL('../openapi/openapi.json', import.meta.url)
 const NAME_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/; // GitHub owner rules
 const REPO_RE = /^[A-Za-z0-9._-]{1,100}$/;
 
-const EXPOSED = ['ETag', 'Link', 'Location', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Request-Id', 'Idempotent-Replayed'];
+const EXPOSED = ['Allow', 'ETag', 'Link', 'Location', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Request-Id', 'Idempotent-Replayed'];
 
 /**
  * Build the request handler.
@@ -82,12 +83,16 @@ export function createApp({ config, store, github, log = defaultLog }) {
       score: c.score,
       score_components: c.score_components,
       cohesion: c.cohesion,
+      recent: { window_days: recentDays(), opened: c.recent_opened ?? 0 },
       first_seen: c.first_seen,
       last_seen: c.last_seen,
       representative_issue: medoid ? { id: `iss_${medoid.id}`, repository: medoid.repository, number: medoid.number, title: medoid.title, source_url: medoid.html_url } : null,
       links: { self: `/v1/clusters/${c.id}`, issues: `/v1/clusters/${c.id}/issues` },
     };
   };
+
+  // The momentum window of the latest analysis (180 days unless an analysis said otherwise).
+  const recentDays = () => store.latestAnalysis()?.params?.recent_days ?? 180;
 
   const jobRepr = (j) => ({
     id: j.id,
@@ -190,12 +195,25 @@ export function createApp({ config, store, github, log = defaultLog }) {
       status: 200,
       body: {
         ...s.counts,
-        repositories_detail: store.listRepositories().map((r) => ({
-          full_name: r.full_name,
-          issues: r.issue_count,
-          open_issues: r.open_issue_count ?? 0,
-          last_synced_at: r.last_synced_at,
-        })),
+        repositories_detail: store.listRepositories().map((r) => {
+          // The corpus holds each repository's most recently UPDATED issues. Every issue opened
+          // in the last N days has updated_at >= created_at, so an N-day window is complete
+          // exactly when the sample reaches further back than N days.
+          const asOf = Date.parse(a?.created_at ?? new Date().toISOString());
+          const coversDays = r.oldest_updated_at ? Math.floor((asOf - Date.parse(r.oldest_updated_at)) / 86_400_000) : 0;
+          return {
+            full_name: r.full_name,
+            issues: r.issue_count,
+            open_issues: r.open_issue_count ?? 0,
+            last_synced_at: r.last_synced_at,
+            sample: {
+              oldest_updated_at: r.oldest_updated_at ?? null,
+              oldest_created_at: r.oldest_created_at ?? null,
+              covers_days: coversDays,
+              momentum_window_complete: coversDays >= recentDays(),
+            },
+          };
+        }),
         monthly: s.monthly,
         latest_analysis: a && { id: a.id, created_at: a.created_at, params: a.params, issue_count: a.issue_count, cluster_count: a.cluster_count, duration_ms: a.duration_ms },
       },
@@ -434,9 +452,12 @@ export function createApp({ config, store, github, log = defaultLog }) {
         throw new ProblemError(429, 'rate-limited', `Rate limit of ${rl.limit} requests per ${config.rateLimit.windowSeconds}s exceeded.`, {}, { 'Retry-After': String(rl.resetSeconds) });
       }
 
-      const accept = String(req.headers.accept ?? '*/*');
-      if (!/(\*\/\*|application\/\*|application\/json|application\/problem\+json|application\/vnd\.oai\.openapi\+json)/i.test(accept)) {
-        throw new ProblemError(406, 'not-acceptable', 'This API only produces application/json.');
+      // A success body can only be sent if its own media type is acceptable: application/json,
+      // or for the contract, the OpenAPI type. Accepting only problem+json (or `*/*` next to
+      // `application/json;q=0`) does not count. The 406 itself is sent as problem+json.
+      const successTypes = url.pathname === '/openapi.json' ? ['application/vnd.oai.openapi+json', 'application/json'] : ['application/json'];
+      if (!acceptsAny(req.headers.accept, successTypes)) {
+        throw new ProblemError(406, 'not-acceptable', 'This API only produces application/json (errors as application/problem+json).');
       }
 
       const { route, params } = router.match(req.method, url.pathname);

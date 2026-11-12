@@ -101,25 +101,36 @@ export class GitHubClient {
   /**
    * Fetch issues (pull requests excluded), newest-updated first, following Link pagination.
    * @param {string} fullName owner/name
-   * @param {{since?: string, etag?: string, maxPages?: number}} opts
-   * @returns {Promise<{notModified: boolean, etag: string|null, issues: object[], pages: number}>}
+   * Items arrive newest-updated first. With `coverUntil` (an ISO date), paging continues past
+   * `maxPages` until the oldest item seen was updated before that date, so every issue updated
+   * (and therefore every issue created) since then is in the sample. `hardMaxPages` bounds it.
+   * @param {{since?: string, etag?: string, maxPages?: number, coverUntil?: string, hardMaxPages?: number}} opts
+   * @returns {Promise<{notModified: boolean, etag: string|null, issues: object[], pages: number, covered: boolean}>}
    */
-  async listIssues(fullName, { since, etag, maxPages = 5 } = {}) {
+  async listIssues(fullName, { since, etag, maxPages = 5, coverUntil, hardMaxPages = 30 } = {}) {
     const params = new URLSearchParams({ state: 'all', sort: 'updated', direction: 'desc', per_page: '100' });
     if (since) params.set('since', since);
     let url = `/repos/${encodePath(fullName)}/issues?${params}`;
     const issues = [];
     let firstEtag = null;
     let pages = 0;
-    while (url && pages < maxPages) {
+    let oldestUpdated = null;
+    const needsMore = () => coverUntil && !since && (oldestUpdated === null || oldestUpdated >= coverUntil);
+    while (url && (pages < maxPages || (needsMore() && pages < hardMaxPages))) {
       const res = await this.request(url, { etag: pages === 0 ? etag : undefined });
-      if (res.status === 304) return { notModified: true, etag, issues: [], pages: 1 };
+      if (res.status === 304) return { notModified: true, etag, issues: [], pages: 1, covered: true };
       if (pages === 0) firstEtag = res.etag;
       pages += 1;
-      for (const item of res.data) if (!item.pull_request) issues.push(item);
+      for (const item of res.data) {
+        // pull requests still count for coverage: they share the updated_at ordering
+        if (!oldestUpdated || item.updated_at < oldestUpdated) oldestUpdated = item.updated_at;
+        if (!item.pull_request) issues.push(item);
+      }
       url = res.next;
     }
-    return { notModified: false, etag: firstEtag, issues, pages };
+    // Covered when the window is exhausted (no more pages) or the sample reaches past it.
+    const covered = !coverUntil || Boolean(since) || !url || (oldestUpdated !== null && oldestUpdated < coverUntil);
+    return { notModified: false, etag: firstEtag, issues, pages, covered };
   }
 }
 

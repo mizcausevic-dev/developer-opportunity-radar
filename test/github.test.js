@@ -33,6 +33,28 @@ test('listIssues stops at maxPages', async () => {
   assert.equal(gh.calls.length, 2);
 });
 
+test('coverUntil pages past maxPages until the window is sampled, bounded by hardMaxPages', async () => {
+  // 10 pages of 1 item, updated one day apart, newest first
+  const day = (n) => new Date(Date.UTC(2026, 10, 30 - n)).toISOString();
+  const fetchImpl = async (url) => {
+    const u = new URL(url);
+    const page = Number(u.searchParams.get('page') ?? 1);
+    const next = new URL(u);
+    next.searchParams.set('page', String(page + 1));
+    const headers = page < 10 ? { link: `<${next}>; rel="next"` } : {};
+    return Response.json([{ id: page, number: page, title: 't', updated_at: day(page), created_at: day(page) }], { headers });
+  };
+  const client = new GitHubClient({ baseUrl: BASE, fetchImpl, sleep: noSleep });
+  const covered = await client.listIssues('a/b', { maxPages: 2, coverUntil: day(5) });
+  assert.equal(covered.pages, 6); // stops on the first item older than the window
+  assert.equal(covered.covered, true);
+  const capped = await client.listIssues('a/b', { maxPages: 2, coverUntil: day(9), hardMaxPages: 4 });
+  assert.equal(capped.pages, 4);
+  assert.equal(capped.covered, false); // reported honestly when the cap wins
+  const plain = await client.listIssues('a/b', { maxPages: 2 });
+  assert.equal(plain.pages, 2);
+});
+
 test('a matching ETag yields notModified without parsing a body', async () => {
   const gh = fakeGitHub({ pageSize: 10 });
   const client = new GitHubClient({ baseUrl: BASE, fetchImpl: gh.fetchImpl, sleep: noSleep });
